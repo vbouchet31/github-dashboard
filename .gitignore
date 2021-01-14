@@ -1,0 +1,10 @@
+/vendor
+/data
+config.yml
+
+/.idea
+/.csslintrc
+/.editorconfig
+/.eslintignore
+/.eslintrc.json
+/.gitattributes
