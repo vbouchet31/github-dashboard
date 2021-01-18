@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Github Dashboard</title>
+  <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <link href="https://nightly.datatables.net/css/jquery.dataTables.css" rel="stylesheet" type="text/css" />
+  <script src="https://nightly.datatables.net/js/jquery.dataTables.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js"></script>
+
+  <script type="text/javascript">
+    async function fetchPulls() {
+      var org = localStorage.getItem('org');
+      var repo = localStorage.getItem('repo');
+
+      const options = {
+        method: 'POST',
+        body: JSON.stringify({ query: `
+          query($org:String!, $repo:String!) {
+            repository(owner:$org, name:$repo) {
+              pullRequests(last:100) {
+                nodes {
+                  title
+                  url
+                  merged
+                  number
+                  state
+                  author {
+                    login
+                    avatarUrl
+                  }
+                  reviewThreads(last: 100) {
+                    nodes {
+                      comments(first: 1) {
+                        edges {
+                          node {
+                            author {
+                              login
+                            }
+                          }
+                        }
+                      }
+                      isCollapsed
+                      isOutdated
+                      isResolved
+                    }
+                  }
+                  reactions(first: 100, content: THUMBS_UP) {
+                    nodes {
+                      user {
+                        login
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          "org": org,
+          "repo": repo
+        }}),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'token ' + localStorage.getItem('token')
+        }
+      };
+
+      // @TODO: Deal with the failures.
+      const response = await fetch('https://api.github.com/graphql', options);
+      const data = await response.json();
+      return data['data']['repository']['pullRequests']['nodes'];
+    }
+
+    const capitalize = (s) => {
+      if (typeof s !== 'string') return '';
+      return s.charAt(0).toUpperCase() + s.slice(1)
+    };
+
+    // Redirect to the config page if the variables are not configured.
+    if (!localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username')) {
+      window.location.replace('/config.html');
+    }
+
+    fetchPulls().then(pulls => {
+      pulls.forEach(pull => {
+        // Counts the unresolved comments opened.
+        comments = 0;
+        pull.reviewThreads.nodes.forEach(thread => {
+          if (!thread.isResolved && !thread.isOutdated && thread.comments.edges[0].node.author.login == localStorage.getItem('username')) {
+            comments++;
+          }
+        });
+
+        // @TODO: Enrich the way to detect the PR has been approved.
+        // Currently, only check the current user has added +1
+        // Add check on who merged the PR
+        // Add check on reviewers
+        // Add check on label
+        hasApproved = false;
+        pull.reactions.nodes.forEach(reaction => {
+          if (reaction.user.login == localStorage.getItem('username')) {
+            hasApproved = true;
+          }
+        });
+
+        $('#data_table tbody tr:last').after(
+          '<tr>' +
+          '<td>' + pull.number + '</td>' +
+          '<td><a href="' + pull.url + '" target="_blank">' + pull.title + '</a></td>' +
+          '<td>' + pull.author.login + '</td>' +
+          '<td>' + capitalize(pull.state.toLowerCase()) + '</td>' +
+          '<td>' + (hasApproved ? 'Yes' : 'No') + '</td>' +
+          '<td>' + comments + '</td>' +
+          '</tr>'
+        )
+      });
+
+      $('#data_table tbody tr:first').remove();
+
+      $('#data_table').dataTable({
+        initComplete: function() {
+          $('div#loading').remove();
+
+          this.api().columns().every(function() {
+            // Get the column title and normalize it.
+            var title = this.header();
+            title = $(title).html().replace(/[\W]/g, '-');
+
+            var column = this;
+            var select = $('<select id="' + title + '" class="select2" ></select>')
+              .appendTo($(column.footer()).empty())
+              .on('change', function () {
+
+                // Get the "text" property from each selected data
+                // regex escape the value and store in array.
+                var data = $.map( $(this).select2('data'), function( value, key ) {
+                  return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
+                });
+
+                // If no data selected use "".
+                if (data.length === 0) {
+                  data = [""];
+                }
+
+                // Join array into string with regex or (|).
+                var val = data.join('|');
+
+                // Search for the option(s) selected
+                column
+                  .search( val ? val : '', true, false )
+                  .draw();
+            });
+
+            // Add all the options.
+            column.data().unique().sort().each( function (d, j) {
+              // Filter the <a></a> from the cell text.
+              matches = d.match(/<a [^>]+>([^<]+)<\/a>/);
+              if (matches) {
+                d = matches[1];
+              }
+              select.append('<option value="'+d+'">'+d+'</option>');
+            });
+
+            // Use column title as selector and placeholder values.
+            $('#' + title).select2({
+              multiple: true,
+              closeOnSelect: false,
+              placeholder: 'Select a ' + title
+            });
+
+            // Initially clear select otherwise first option is selected.
+            $('.select2').val(null).trigger('change');
+          });
+        }
+      });
+    });
+    </script>
+</head>
+<body>
+<a href="config.html">Config</a>
+<div id="loading">Loading data. Please wait</div>
+<table id="data_table" class="display">
+  <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></thead>
+  <tbody><tr></tr></tbody>
+  <tfoot><tr><th>ID</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
+</table>
+</body>
+</html>

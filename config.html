@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Github Dashboard</title>
+  <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <script type="text/javascript">
+    // Handle the form submit to store the values in local storage.
+    function handleSubmit() {
+      localStorage.setItem('org', $('input#org').val());
+      localStorage.setItem('repo', $('input#repo').val());
+      localStorage.setItem('token', $('input#token').val());
+      localStorage.setItem('username', $('input#username').val());
+
+      return false;
+    }
+
+    // Set the default value from the local storage.
+    $('document').ready(function() {
+      $('input#org').val(localStorage.getItem('org'));
+      $('input#repo').val(localStorage.getItem('repo'));
+      $('input#token').val(localStorage.getItem('token'));
+      $('input#username').val(localStorage.getItem('username'));
+    });
+  </script>
+</head>
+<body>
+<a href="index.html">Dashboard</a>
+<form onsubmit="return handleSubmit();">
+  <label>Organization</label><input id="org" type="text">
+  <label>Repository</label><input id="repo" type="text">
+  <label>Token</label><input id="token" type="text">
+  <label>TA username</label><input id="username" type="text">
+  <input type="submit"/>
+</form>
+</body>
