@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,6 +8,8 @@
   <script src="https://nightly.datatables.net/js/jquery.dataTables.js"></script>
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
 
   <script type="text/javascript">
     async function fetchPulls() {
@@ -24,6 +26,7 @@
                   title
                   url
                   merged
+                  closed
                   number
                   state
                   author {
@@ -44,13 +47,57 @@
                       isCollapsed
                       isOutdated
                       isResolved
+                      resolvedBy {
+                        login
+                      }
                     }
                   }
-                  reactions(first: 100, content: THUMBS_UP) {
+                  reactions(first: 100) {
                     nodes {
+                      content
                       user {
                         login
                       }
+                    }
+                  }
+                  labeled: timelineItems(first: 100, itemTypes: LABELED_EVENT) {
+                    nodes {
+                      ... on LabeledEvent {
+                        label{
+                          name
+                        }
+                        actor {
+                          login
+                        }
+                        createdAt
+                      }
+                    }
+                  }
+                  unlabeled: timelineItems(first: 100, itemTypes: UNLABELED_EVENT) {
+                    nodes {
+                      ... on UnlabeledEvent {
+                        label{
+                          name
+                        }
+                        actor {
+                          login
+                        }
+                        createdAt
+                      }
+                    }
+                  }
+                  labels(last: 100) {
+                    nodes {
+                        name
+                    }
+                  }
+                  reviews(first: 100 ) {
+                    nodes {
+                      author {
+                        login
+                      }
+                      state
+                      submittedAt
                     }
                   }
                 }
@@ -68,9 +115,17 @@
         }
       };
 
-      // @TODO: Deal with the failures.
       const response = await fetch('https://api.github.com/graphql', options);
       const data = await response.json();
+
+      // @TODO: Improve error management.
+      if (data['errors']) {
+        data['errors'].forEach(error => {
+          console.log(error.message + ' (' + error.type + ')');
+        });
+        return;
+      }
+
       return data['data']['repository']['pullRequests']['nodes'];
     }
 
@@ -85,35 +140,124 @@
     }
 
     fetchPulls().then(pulls => {
+      if (pulls === undefined) {
+        $('#loading').html('An error occurred. Please check the console.');
+      }
+
+      let closed = 0;
       pulls.forEach(pull => {
-        // Counts the unresolved comments opened.
+        // Hide closed (not merged) PRs if configured.
+        if (pull.closed && !pull.merged && JSON.parse(localStorage.getItem('hide_closed'))) {
+          closed++;
+          return;
+        }
+
+        // Counts the threads opened by current user but unresolved or resolved
+        // by another user.
         comments = 0;
+        misapproved = 0;
         pull.reviewThreads.nodes.forEach(thread => {
-          if (!thread.isResolved && !thread.isOutdated && thread.comments.edges[0].node.author.login == localStorage.getItem('username')) {
+          if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) && !thread.isOutdated && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
             comments++;
+          }
+
+          if (thread.comments.edges[0].node.author.login === localStorage.getItem('username') && thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username')) {
+            misapproved++;
           }
         });
 
-        // @TODO: Enrich the way to detect the PR has been approved.
-        // Currently, only check the current user has added +1
-        // Add check on who merged the PR
-        // Add check on reviewers
-        // Add check on label
+        // Check if the PR has been approved.
         hasApproved = false;
-        pull.reactions.nodes.forEach(reaction => {
-          if (reaction.user.login == localStorage.getItem('username')) {
+        approvalAdditionalInfo = '';
+
+        // Check if the PR has been approved via a reaction. The reaction must
+        // be added by the selected user and associated with the pull request's
+        // description. Any reaction given to a comment or inside a comment
+        // won't be considered.
+        if (localStorage.getItem('approval_method') === 'reaction' && localStorage.getItem('approval_method-reaction') !== undefined) {
+          pull.reactions.nodes.forEach(reaction => {
+            if (reaction.content === localStorage.getItem('approval_method-reaction') && reaction.user.login === localStorage.getItem('username')) {
+              hasApproved = true;
+            }
+          });
+        }
+
+        // Check if the PR has been approved via a label. Show a tooltip in case
+        // the label has been added by someone else or has been removed by
+        // someone else.
+        if (localStorage.getItem('approval_method') === 'label' && localStorage.getItem('approval_method-label') !== undefined) {
+          hasLabel = false;
+          pull.labels.nodes.forEach(label => {
+            if (label.name === localStorage.getItem('approval_method-label')) {
+              hasLabel = true;
+            }
+          });
+
+          latestCreatedAt = 0;
+          pull.labeled.nodes.forEach(item => {
+            if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestCreatedAt) {
+              latestCreatedAt = Date.parse(item.createdAt);
+            }
+          });
+
+          latestRemovalAt = 0;
+          pull.unlabeled.nodes.forEach(item => {
+            if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestRemovalAt) {
+              latestRemovalAt = Date.parse(item.createdAt);
+            }
+          });
+
+          if (latestCreatedAt > latestRemovalAt) {
             hasApproved = true;
+
+            if (!hasLabel) {
+              approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> has been removed later by another user.';
+            }
           }
-        });
+          else if (hasLabel) {
+            approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> is present but it has been added by another user.';
+          }
+        }
+
+        // Check if the PR has been approved via a review.
+        // Because a same user can give multiple reviews, we use the review time
+        // to find if the latest one is "APPROVED". "COMMENTED" is considered
+        // informational and so it does not impact the state. Other states are
+        // considered non approved.
+        if (localStorage.getItem('approval_method') === 'reviewer') {
+          latestReviewTime = 0;
+          pull.reviews.nodes.forEach(review => {
+            if (review.author.login === localStorage.getItem('username') && Date.parse(review.submittedAt) > latestReviewTime) {
+              latestReviewTime = Date.parse(review.submittedAt);
+
+              if (review.state === 'APPROVED') {
+                hasApproved = true;
+              }
+              else if (review.state === 'CHANGES_REQUESTED' || review.state === 'DISMISSED' || review.state === 'PENDING') {
+                hasApproved = false;
+              }
+            }
+          });
+        }
+
+        approvalTooltip = '';
+        if (approvalAdditionalInfo !== '') {
+          approvalTooltip = '<i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" title="' + approvalAdditionalInfo + '"></i>';
+        }
+
+        commentTooltip = '';
+        if (misapproved > 0) {
+          commentTooltip = '<i class="bi bi-exclamation-triangle-fill" data-toggle="tooltip" data-bs-html="true" title="' + misapproved + ' comments have been approved by someone else."></i>'
+        }
 
         $('#data_table tbody tr:last').after(
           '<tr>' +
           '<td>' + pull.number + '</td>' +
-          '<td><a href="' + pull.url + '" target="_blank">' + pull.title + '</a></td>' +
+          '<td><a href="' + pull.url + '" target="_blank"><span>' + pull.title + '</span></a></td>' +
           '<td>' + pull.author.login + '</td>' +
           '<td>' + capitalize(pull.state.toLowerCase()) + '</td>' +
-          '<td>' + (hasApproved ? 'Yes' : 'No') + '</td>' +
-          '<td>' + comments + '</td>' +
+          '<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
+          '<td><span>' + comments + '</span>' + commentTooltip + '</td>' +
           '</tr>'
         )
       });
@@ -139,7 +283,6 @@
                 var data = $.map( $(this).select2('data'), function( value, key ) {
                   return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
                 });
-
                 // If no data selected use "".
                 if (data.length === 0) {
                   data = [""];
@@ -154,38 +297,58 @@
                   .draw();
             });
 
-            // Add all the options.
-            column.data().unique().sort().each( function (d, j) {
-              // Filter the <a></a> from the cell text.
-              matches = d.match(/<a [^>]+>([^<]+)<\/a>/);
+            // Get all the options from the column, filter and group them
+            // before adding them to a select list.
+            column.data().map( function (value, index) {
+              matches = value.match(/<span>([^<]+)<\/span>/);
               if (matches) {
-                d = matches[1];
+                return matches[1];
               }
-              select.append('<option value="'+d+'">'+d+'</option>');
+              return value;
+            }).unique().sort().map( function (value, index) {
+              select.append('<option value="' + value + '">' + value + '</option>');
             });
 
             // Use column title as selector and placeholder values.
             $('#' + title).select2({
               multiple: true,
               closeOnSelect: false,
-              placeholder: 'Select a ' + title
+              //placeholder: 'Select v',
+              width: '100%',
+              theme: "classic",
             });
 
             // Initially clear select otherwise first option is selected.
             $('.select2').val(null).trigger('change');
           });
+
+          $('#data_table').show();
+          $('[data-toggle="tooltip"]').tooltip();
+
+          if (closed > 0) {
+            $('#closed_pull_requests_message').html(closed + ' closed pull request' + ((closed > 1) ? 's are' : ' is') + ' hidden.');
+          }
         }
       });
     });
     </script>
+
+    <style>
+      i.bi{
+        margin: .4rem;
+      }
+    </style>
 </head>
-<body>
-<a href="config.html">Config</a>
-<div id="loading">Loading data. Please wait</div>
-<table id="data_table" class="display">
-  <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></thead>
+<body class="container">
+> <a href="config.html">Settings</a>
+<div id="loading">Loading data. Please wait...</div>
+<table id="data_table" style="display: none;">
+  <thead><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></thead>
   <tbody><tr></tr></tbody>
-  <tfoot><tr><th>ID</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
+  <tfoot><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
 </table>
+<div id="closed_pull_requests_message"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
 </body>
 </html>

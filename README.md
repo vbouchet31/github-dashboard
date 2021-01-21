@@ -1,57 +1,51 @@
-This tool aims to help TA to track their code review.
+This dashboard aims to help TA to track their code review.
 
-# Setup
-Copy the ``config.yml.template`` to ``config.yml`` and follow "Configuration".
+It can be complex for a technical leader to follow all the comments he places
+on the various pull requests of a project. It is then complex for him to know 
+if his feedback have been taken in account or not. This dashboard aims to 
+given an overview of the pending comments or pull requests which the leader 
+has not approved yet.
 
-# Assumptions
-Because not all the TA are using the same way to mark a pull request as "approved",
-the assumption (for now) is that the TA leave a "+1" reaction to the pull request
-description.
-
-Pull requests are hidden when they are merged AND approved by the TA AND don't
-have any pending comment opened by the TA.
-
-The system will "only" check the latest 400 PRs and latest 400 comments.
+This dashboard does not store any information about the pull requests states or
+comments. It does not update anything on Github.
 
 # Configuration
-- username: It is used to determine if the TA is the author of a comment or approval.
+Visit the settings form on /config.html
+
+- org: The organisation owning the repository.
+- repo: The repository to track.
 - token (optional): It is used to authenticate API requests to github.
 See [Github documentation](https://docs.github.com/en/free-pro-team@latest/github/authenticating-to-github/creating-a-personal-access-token) 
 to create a token. It is mandatory if the target repository is private. 
 It also increase the API limit so you can refresh more often the dashboard.
-- user_session_cookie (optional): It is used to authenticated some GET requests.
-See technical details about the reason. To get this, authenticate on Github and 
-then with dev tool, get the "user_session" cookie. It is mandatory if the target 
-repository is private.
-- org: The organisation owning the repository.
-- repo: The repository to track.
-- cache_duration: The duration (in seconds) for which the data are considered fresh.
-If the page is refreshed before the cache expire, the locale data will be used. Use ?cache_reset
-in the url to bypass the cache. Be cautious as building the data may require a lot
-of API/GET requests. Default to 10 minutes.
+
+- username: The Github's username of the TA. It is used to determine if the TA 
+is the author of comments, reviews, reactions, ....
+- approval method: The way the system will determine if a PR has been 
+approved or not.
+  - label: The PR is considered approved if the given label has been added by 
+  the selected user. The PR is not considered approved if the label has been 
+  added by another user. It is not considered approved if the selected user 
+  removes the label afterwards.
+  - reaction: The PR is considered approved if the given reaction has been 
+  placed on the PR description. The reaction does not count for approval if 
+  added anywhere else (comment content, comment reaction, ...)
+  - review: The PR is considered approved if the given user gives "Approve" via 
+  the review mechanism. Note that it is not possible to approve a PR which is 
+  already merded, so this method does not really work when doing post-merge 
+  code review.
+  - comment [TODO]: The PR is considered if a specific comment is added by the 
+  selected user. This comment must be added to the PR, not as a code review 
+  on a file.
+
+- hide closed: Show or hide the pull requests which have been closed without 
+being merged.
 
 # Technical details
-The data are stored locally using [SleekDB](https://sleekdb.github.io/) which is
-a simple and basic NoSQL database implementation.
+The system uses GraphQL API to gather all the information in a unique POST
+request.
 
-One "table" is used to store the data about the pull requests:
-- id: The id of the pull request
-- title: The title of the pull request
-- state: The state of the pull request (either "open" or "closed")
-- author: The username of the author of the pull request
-- created: The date the pull request has been opened
-- approved: If the current user has approved the pull request
-
-One "table" is used to store the data about the comments:
-- id: The id of the comment
-- body: The content of the comment
-- author: The author of the comment
-- created: The date the comment has been posted
-- in_reply_to_id: The id of the comment this one is a response to. "_none" if it
-is not a reply
-- pr_id: The id of the pull request's the comment belongs to
-- state: Either the comment (or thread) is marked as resolved or not (either "open" or "closed")
-
-Because the comment state is not part of the Rest API, the process will issue one GET
-request for each pull request which has comment in open state. It will inspect the DOM
-to determine the state of the comment.
+# Todo-list
+- Add an option to approve a pull request via a comment.
+- Add a way to snooze a pull request for sometime or until it is updated.
+- Ideally support both Rest API and GraphQL (some customer does not allow GraphQL but Rest)

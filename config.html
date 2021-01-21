@@ -1,16 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Github Dashboard</title>
   <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
   <script type="text/javascript">
     // Handle the form submit to store the values in local storage.
     function handleSubmit() {
+      // Clearing the approval method config from storage before saving the new
+      // value(s).
+      localStorage.removeItem('approval_method-reaction');
+      localStorage.removeItem('approval_method-label');
+
       localStorage.setItem('org', $('input#org').val());
       localStorage.setItem('repo', $('input#repo').val());
       localStorage.setItem('token', $('input#token').val());
       localStorage.setItem('username', $('input#username').val());
+      localStorage.setItem('hide_closed', $('input#hide_closed').prop('checked'));
+
+      let approval_method = $('select#approval_method').val();
+      localStorage.setItem('approval_method', approval_method);
+      if ($('#approval_method-' + approval_method) !== undefined) {
+        localStorage.setItem('approval_method-' + approval_method, $('#approval_method-' + approval_method).val());
+      }
 
       return false;
     }
@@ -21,16 +34,184 @@
       $('input#repo').val(localStorage.getItem('repo'));
       $('input#token').val(localStorage.getItem('token'));
       $('input#username').val(localStorage.getItem('username'));
+      $('input#hide_closed').prop('checked', JSON.parse(localStorage.getItem('hide_closed')));
+      $('select#approval_method').val(localStorage.getItem('approval_method'));
+
+      $('div[id^=fieldset-approval_method-]').hide();
+      if ($('#approval_method-' + localStorage.getItem('approval_method')) !== undefined) {
+        $('#approval_method-' + localStorage.getItem('approval_method')).val(localStorage.getItem('approval_method-' + localStorage.getItem('approval_method')));
+
+        $('div#fieldset-approval_method-' + localStorage.getItem('approval_method')).show();
+      }
+
+      // When approval method change, display the appropriate options.
+      $('select#approval_method').change(function() {
+        $('div[id^=fieldset-approval_method-]').hide();
+        $('div#fieldset-approval_method-' + $('select#approval_method').val()).show();
+      });
     });
   </script>
+
+  <style>
+    .form-group{
+      border: 1px solid #6c757d !important;
+      border-radius: .25rem;
+    }
+    legend{
+      float: none;
+      padding: inherit;
+      color: #6c757d;
+    }
+  </style>
 </head>
-<body>
-<a href="index.html">Dashboard</a>
+<body class="container">
+> <a href="index.html">Return to the dashboard</a>
 <form onsubmit="return handleSubmit();">
-  <label>Organization</label><input id="org" type="text">
-  <label>Repository</label><input id="repo" type="text">
-  <label>Token</label><input id="token" type="text">
-  <label>TA username</label><input id="username" type="text">
-  <input type="submit"/>
+  <fieldset class="form-group border p-2">
+    <legend class="w-auto">Github access</legend>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="org" class="form-label">Organization</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="org"
+               aria-describedby="org_help"/>
+      </div>
+      <div class="col-auto">
+        <div id="org_help" class="form-text">The organization's name of the
+          repository you want to inspect. https://github.com/<b>:org</b>/:repo
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="repo" class="form-label">Repository</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="repo"
+               aria-describedby="repo_help"/>
+      </div>
+      <div class="col-auto">
+        <div id="repo_help" class="form-text">The repository's name you want to
+          inspect. https://github.com/:org/<b>:repo</b></div>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="token" class="form-label">Access token</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="token"
+               aria-describedby="token_help"/>
+      </div>
+      <div class="col align-self-end">
+        <div id="token_help" class="form-text">A personal access token has to be
+          used in place of a password to access the API and get the dashboard
+          built. Follow <a
+                  href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token">the
+            Github documentation</a> about how to create one.
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-group border p-2">
+    <legend class="w-auto">Review settings</legend>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="username" class="form-label">TA's Github username</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="username"
+               aria-describedby="username_help"/>
+      </div>
+      <div class="col align-self-end">
+        <div id="username_help" class="form-text">The username of the TA doing
+          the review. This username will be used to check comments's author,
+          reactions's actor, reviewer name, etc.
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="approval_method" class="form-label">Approval method</label>
+      </div>
+      <div class="col-2">
+        <select id="approval_method" class="form-select mr-sm-2" aria-describedby="approval_method_help">
+          <option value="reaction">Reaction</option>
+          <option value="label">Label</option>
+          <option value="reviewer">Review</option>
+        </select>
+      </div>
+      <div class="col align-self-end">
+        <div id="approval_method_help" class="form-text">Select the method the
+          user uses to approve the pull requests. Reaction must be associated
+          with the pull request description. Label will only be considered an
+          approval if it has been added by the selected user. Review is about
+          the
+          <a href="https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/approving-a-pull-request-with-required-reviews">Github
+            reviewing</a> feature. In case multiple reviews are left by the selected user, the more recent one will be considered. @TODO: Add an option to find a specific
+          comment on the pull request.
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-center" id="fieldset-approval_method-label">
+      <div class="col-2">
+        <label for="approval_method-label" class="form-label">Label</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="approval_method-label"
+               aria-describedby="approval_method-label_help"/>
+      </div>
+      <div class="col-auto">
+        <div id="approval_method-label_help" class="form-text">The label which must be added by the selected user to the pull request for it to be considered approved. It is case sensitive.</div>
+      </div>
+    </div>
+
+    <div class="row g-3 align-items-center" id="fieldset-approval_method-reaction">
+      <div class="col-2">
+        <label for="approval_method-label" class="form-label">Reaction</label>
+      </div>
+      <div class="col-2">
+        <select id="approval_method-reaction" class="form-select mr-sm-2" aria-describedby="approval_method-reaction_help">
+          <option value="THUMBS_UP">👍</option>
+          <option value="LAUGH">😄</option>
+          <option value="HOORAY">🎉</option>
+          <option value="HEART">❤️</option>
+          <option value="ROCKET">🚀️</option>
+          <option value="EYES">👀️</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <div id="approval_method-reaction_help" class="form-text">The reaction which must be added by the selected user to the pull request's description for it to be considered approved.</div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="form-group border p-2">
+    <legend class="w-auto">Options</legend>
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="hide_closed" class="form-label">Hide closed PRs</label>
+      </div>
+      <div class="col-2">
+        <input id="hide_closed" class="form-check-input" type="checkbox" aria-describedby="hide_closed_help"/>
+      </div>
+      <div class="col-auto">
+        <div id="hide_closed_help" class="form-text">Don't list the pull requests which have been closed.</div>
+      </div>
+    </div>
+  </fieldset>
+
+  <br/>
+  <input class="btn btn-primary" type="submit"/>
 </form>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
 </body>
