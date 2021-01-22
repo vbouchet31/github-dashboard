@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <title>Github Dashboard</title>
-  <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
-  <link href="https://nightly.datatables.net/css/jquery.dataTables.css" rel="stylesheet" type="text/css" />
-  <script src="https://nightly.datatables.net/js/jquery.dataTables.js"></script>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/dataTables.bootstrap4.min.css">
+
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
 
   <script type="text/javascript">
@@ -29,6 +34,12 @@
                   closed
                   number
                   state
+                  changedFiles
+                  additions
+                  deletions
+                  baseRefName
+                  headRefName
+                  mergeable
                   author {
                     login
                     avatarUrl
@@ -247,20 +258,30 @@
 
         commentTooltip = '';
         if (misapproved > 0) {
-          commentTooltip = '<i class="bi bi-exclamation-triangle-fill" data-toggle="tooltip" data-bs-html="true" title="' + misapproved + ' comments have been approved by someone else."></i>'
+          commentTooltip = '<i class="bi bi-exclamation-triangle-fill" data-toggle="tooltip" data-bs-html="true" title="' + misapproved + ' comment' + ((misapproved > 1) ? 's have' : ' has') + ' been approved by someone else."></i>'
         }
+
+        stateIcon = '<svg style="fill: #22863a;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
+        if (pull.state === 'CLOSED') {
+          stateIcon = '<svg style="fill: #cb2431;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
+        }
+        else if (pull.state === 'MERGED') {
+          stateIcon = '<svg style="fill: #6f42c1;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M5 3.254V3.25v.005a.75.75 0 110-.005v.004zm.45 1.9a2.25 2.25 0 10-1.95.218v5.256a2.25 2.25 0 101.5 0V7.123A5.735 5.735 0 009.25 9h1.378a2.251 2.251 0 100-1.5H9.25a4.25 4.25 0 01-3.8-2.346zM12.75 9a.75.75 0 100-1.5.75.75 0 000 1.5zm-8.5 4.5a.75.75 0 100-1.5.75.75 0 000 1.5z"></path></svg>'
+        }
+
 
         $('#data_table tbody tr:last').after(
           '<tr>' +
           '<td>' + pull.number + '</td>' +
           '<td><a href="' + pull.url + '" target="_blank"><span>' + pull.title + '</span></a></td>' +
-          '<td>' + pull.author.login + '</td>' +
-          '<td>' + capitalize(pull.state.toLowerCase()) + '</td>' +
+          '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/><span>' + pull.author.login + '</span></td>' +
+          '<td>' + stateIcon + '<span class="d-none">' + capitalize(pull.state.toLowerCase()) + '</span></td>' +
           '<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
           '<td><span>' + comments + '</span>' + commentTooltip + '</td>' +
           '</tr>'
         )
       });
+      //
 
       $('#data_table tbody tr:first').remove();
 
@@ -300,7 +321,7 @@
             // Get all the options from the column, filter and group them
             // before adding them to a select list.
             column.data().map( function (value, index) {
-              matches = value.match(/<span>([^<]+)<\/span>/);
+              matches = value.match(/<span[^>]*>([^<]+)<\/span>/);
               if (matches) {
                 return matches[1];
               }
@@ -337,17 +358,29 @@
       i.bi{
         margin: .4rem;
       }
+      img.avatar-user{
+        border-radius: 50%;
+        display: inline-block;
+        overflow: hidden;
+        line-height: 1;
+        vertical-align: middle;
+        border-style: none;
+        margin-right: .6rem;
+      }
     </style>
 </head>
 <body class="container">
 > <a href="config.html">Settings</a>
-<div id="loading">Loading data. Please wait...</div>
-<table id="data_table" style="display: none;">
-  <thead><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></thead>
-  <tbody><tr></tr></tbody>
-  <tfoot><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
-</table>
-<div id="closed_pull_requests_message"></div>
+<div style="margin-top: 10px;">
+  <div id="loading">Loading data. Please wait...</div>
+  <table id="data_table" style="display: none;" class="table table-striped table-bordered">
+    <thead><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments<i class="bi bi-chat-right-text-fill"></i></th></tr></thead>
+    <tbody><tr></tr></tbody>
+    <tfoot><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
+  </table>
+  <div id="closed_pull_requests_message"></div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
 </body>
