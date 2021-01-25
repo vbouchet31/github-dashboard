@@ -101,7 +101,7 @@
                aria-describedby="endpoint_help"
                placeholder="https://api.github.com/graphql"/>
       </div>
-      <div class="col-auto">
+      <div class="col align-self-end">
         <div id="endpoint_help" class="form-text">The GraphQL endpoint to use. If you are hosted on Github.com, the endpoint is https://api.github.com/graphql. If you are hosted on an Enterprise version, the endpoint is probable https://github.customer.corp/api/graphql.
         </div>
       </div>
@@ -253,13 +253,15 @@
       <div class="col-2">
         <input id="degraded" class="form-check-input" type="checkbox" aria-describedby="degraded_help"/>
       </div>
-      <div class="col-auto">
+      <div class="col align-self-end">
         <div id="degraded_help" class="form-text">Don't use the API but read data from a response.json file. The file must be placed in the same folder than the dashboard and must be named response.json</div>
       </div>
     </div>
 
     <div class="row g-3 align-items-center">
-      <textarea id="static"></textarea>
+      <div class="col">
+        <textarea id="static" rows="15"></textarea>
+      </div>
     </div>
 
 
