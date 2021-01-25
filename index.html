@@ -55,8 +55,8 @@
                           }
                         }
                       }
-                      isCollapsed
-                      isOutdated
+                      #isCollapsed
+                      #isOutdated
                       isResolved
                       resolvedBy {
                         login
@@ -126,7 +126,7 @@
         }
       };
 
-      const response = await fetch('https://api.github.com/graphql', options);
+      const response = await fetch(localStorage.getItem('endpoint'), options);
       const data = await response.json();
 
       // @TODO: Improve error management.
@@ -146,7 +146,7 @@
     };
 
     // Redirect to the config page if the variables are not configured.
-    if (!localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username')) {
+    if (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username')) {
       window.location.replace('/config.html');
     }
 
@@ -168,7 +168,7 @@
         comments = 0;
         misapproved = 0;
         pull.reviewThreads.nodes.forEach(thread => {
-          if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) && !thread.isOutdated && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
+          if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) /*&& !thread.isOutdated*/ && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
             comments++;
           }
 

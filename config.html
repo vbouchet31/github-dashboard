@@ -15,6 +15,7 @@
       localStorage.removeItem('approval_method-reaction');
       localStorage.removeItem('approval_method-label');
 
+      localStorage.setItem('endpoint', $('input#endpoint').val());
       localStorage.setItem('org', $('input#org').val());
       localStorage.setItem('repo', $('input#repo').val());
       localStorage.setItem('token', $('input#token').val());
@@ -32,6 +33,7 @@
 
     // Set the default value from the local storage.
     $('document').ready(function() {
+      $('input#endpoint').val(localStorage.getItem('endpoint'));
       $('input#org').val(localStorage.getItem('org'));
       $('input#repo').val(localStorage.getItem('repo'));
       $('input#token').val(localStorage.getItem('token'));
@@ -71,6 +73,22 @@
 <form onsubmit="return handleSubmit();">
   <fieldset class="form-group border p-2">
     <legend class="w-auto">Github access</legend>
+
+
+    <div class="row g-3 align-items-center">
+      <div class="col-2">
+        <label for="endpoint" class="form-label">GraphQL endpoint</label>
+      </div>
+      <div class="col-2">
+        <input type="text" class="form-control" id="endpoint"
+               aria-describedby="endpoint_help"
+               placeholder="https://api.github.com/graphql"/>
+      </div>
+      <div class="col-auto">
+        <div id="endpoint_help" class="form-text">The GraphQL endpoint to use. If you are hosted on Github.com, the endpoint is https://api.github.com/graphql. If you are hosted on an Enterprise version, the endpoint is probable https://github.customer.corp/api/graphql.
+        </div>
+      </div>
+    </div>
 
     <div class="row g-3 align-items-center">
       <div class="col-2">
