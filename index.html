@@ -126,7 +126,15 @@
         }
       };
 
-      const response = await fetch(localStorage.getItem('endpoint'), options);
+      let response = {};
+      if (!localStorage.getItem('degraded')) {
+        response = await fetch(localStorage.getItem('endpoint'), options);
+
+      }
+      else {
+        response = await fetch('./response.json');
+      }
+
       const data = await response.json();
 
       // @TODO: Improve error management.
@@ -146,13 +154,18 @@
     };
 
     // Redirect to the config page if the variables are not configured.
-    if (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username')) {
+    // We don't do the check if we are using the degraded mode.
+    if (!localStorage.getItem('degraded') && (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username'))) {
       window.location.replace('/config.html');
     }
 
     fetchPulls().then(pulls => {
+      $('#loading').html('');
       if (pulls === undefined) {
         $('#loading').html('An error occurred. Please check the console.');
+      }
+      else if (localStorage.getItem('degraded')) {
+        $('#loading').html('<div class="alert alert-warning" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>Data are coming from local "response.json" file.</div>');
       }
 
       let closed = 0;
@@ -287,8 +300,6 @@
 
       $('#data_table').dataTable({
         initComplete: function() {
-          $('div#loading').remove();
-
           this.api().columns().every(function() {
             // Get the column title and normalize it.
             var title = this.header();
