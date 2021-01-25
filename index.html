@@ -159,6 +159,7 @@
     }
 
     $(document).ready(function() {
+
       fetchPulls().then(pulls => {
         $('#loading').html('');
         if (pulls === undefined) {
@@ -282,11 +283,17 @@
           $('#data_table tbody tr:last').after(
             '<tr>' +
             '<td>' + pull.number + '</td>' +
-            '<td><a href="' + pull.url + '" target="_blank"><span>' + pull.title + '</span></a></td>' +
-            '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/><span>' + pull.author.login + '</span></td>' +
-            '<td>' + stateIcon + '<span class="d-none">' + capitalize(pull.state.toLowerCase()) + '</span></td>' +
-            '<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
-            '<td><span>' + comments + '</span>' + commentTooltip + '</td>' +
+            '<td>' + pull.title + '</td>' +
+            '<td>' + pull.url + '</td>' +
+            '<td>' + pull.author.login + '</td>' +
+            '<td>' + capitalize(pull.state.toLowerCase()) + '</td>' +
+            '<td>' + stateIcon + '</span></td>' +
+            //'<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
+            '<td>' + (hasApproved ? 'Yes' : 'No') + '</td>' +
+            '<td>' + approvalTooltip + '</td>' +
+            '<td>' + comments + '</td>' +
+            '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/></td>' +
+            '<td>' + commentTooltip + '</td>' +
             '</tr>'
           )
         });
@@ -295,64 +302,129 @@
         $('#data_table tbody tr:first').remove();
 
         $('#data_table').dataTable({
-          initComplete: function () {
+          'order': [[0, 'desc']],
+          'columnDefs': [
+            {
+              'render': function (data, type, row) {
+                if (type === 'display') {
+                  return data + row[7];
+                }
+                return data;
+
+              },
+              'targets': 6
+            },
+            {
+              'render': function (data, type, row) {
+                if (type === 'display') {
+                  return row[5];
+                }
+                return data;
+
+              },
+              'targets': 4
+            },
+            {
+              'render': function (data, type, row) {
+                if (type === 'display') {
+                  return '<a href="' + row[2] + '" target="_blank">' + row[1] + '</a>';
+                }
+                return data;
+
+              },
+              'targets': 1
+            },
+            {
+              'render': function (data, type, row) {
+                if (type === 'display') {
+                  return row[9] + data;
+                }
+                return data;
+
+              },
+              'targets': 3
+            },
+            {
+              'render': function (data, type, row) {
+                if (type === 'display') {
+                  return data + row[10];
+                }
+                return data;
+
+              },
+              'targets': 8
+            },
+            {
+              'visible': false,
+              'targets': [2, 5, 7, 9, 10]
+            },
+          ],
+          'initComplete': function () {
             this.api().columns().every(function () {
-              // Get the column title and normalize it.
-              var title = this.header();
-              title = $(title).html().replace(/[\W]/g, '-');
+              if (this.visible()) {
 
-              var column = this;
-              var select = $('<select id="' + title + '" class="select2" ></select>')
-                .appendTo($(column.footer()).empty())
-                .on('change', function () {
+                // Get the column title and normalize it.
+                var title = this.header();
+                title = $(title).html().replace(/[\W]/g, '-');
 
-                  // Get the "text" property from each selected data
-                  // regex escape the value and store in array.
-                  var data = $.map($(this).select2('data'), function (value, key) {
-                    return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
+                var column = this;
+                var select = $('<select id="' + title + '" class="select2" ></select>')
+                  .appendTo($(column.footer()).empty())
+                  .on('change', function () {
+
+                    // Get the "text" property from each selected data
+                    // regex escape the value and store in array.
+                    var data = $.map($(this).select2('data'), function (value, key) {
+                      return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
+                    });
+                    // If no data selected use "".
+                    if (data.length === 0) {
+                      data = [""];
+                    }
+
+                    // Join array into string with regex or (|).
+                    var val = data.join('|');
+
+                    // Search for the option(s) selected.
+                    column
+                      .search(val ? val : '', true, false)
+                      .draw();
+
+                    $('[data-toggle="tooltip"]').tooltip();
                   });
-                  // If no data selected use "".
-                  if (data.length === 0) {
-                    data = [""];
-                  }
 
-                  // Join array into string with regex or (|).
-                  var val = data.join('|');
+                  // Add all the options.
+                  column.data().unique().sort().each( function (d, j) {
+                    select.append('<option value="'+d+'">'+d+'</option>');
+                  });
 
-                  // Search for the option(s) selected
-                  column
-                    .search(val ? val : '', true, false)
-                    .draw();
+                // Use column title as selector and placeholder values.
+                $('#' + title).select2({
+                  multiple: true,
+                  closeOnSelect: false,
+                  width: '100%',
+                  theme: "classic",
                 });
 
-              // Get all the options from the column, filter and group them
-              // before adding them to a select list.
-              column.data().map(function (value, index) {
-                matches = value.match(/<span[^>]*>([^<]+)<\/span>/);
-                if (matches) {
-                  return matches[1];
-                }
-                return value;
-              }).unique().sort().map(function (value, index) {
-                select.append('<option value="' + value + '">' + value + '</option>');
-              });
+                // Initially clear select otherwise first option is selected.
+                $('.select2').val(null).trigger('change');
 
-              // Use column title as selector and placeholder values.
-              $('#' + title).select2({
-                multiple: true,
-                closeOnSelect: false,
-                //placeholder: 'Select v',
-                width: '100%',
-                theme: "classic",
-              });
-
-              // Initially clear select otherwise first option is selected.
-              $('.select2').val(null).trigger('change');
+                // Default filtering to focus on PRs which require attention.
+                $('select#Approved').val(['No']).trigger('change');
+                $('select#State').val(['Merged', 'Open']).trigger('change');
+              }
             });
 
-            $('#data_table').show();
+            // Adjust the table and columns size.
+            $('#data_table').show().width('100%');
+            $($('#data_table').dataTable().api().column(4).header()).width('20px');
+            $($('#data_table').dataTable().api().column(6).header()).width('20px');
+            $($('#data_table').dataTable().api().column(8).header()).width('20px');
+
+            // Enable tooltips.
             $('[data-toggle="tooltip"]').tooltip();
 
+            // Display a message with number of closed PRs which are hidden.
             if (closed > 0) {
               $('#closed_pull_requests_message').html(closed + ' closed pull request' + ((closed > 1) ? 's are' : ' is') + ' hidden.');
             }
@@ -381,10 +453,10 @@
 > <a href="config.html">Settings</a>
 <div style="margin-top: 10px;">
   <div id="loading">Loading data. Please wait...</div>
-  <table id="data_table" style="display: none;" class="table table-striped table-bordered">
-    <thead><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments<i class="bi bi-chat-right-text-fill"></i></th></tr></thead>
+  <table id="data_table" style="display: none;" class="table table-striped table-bordered compact">
+    <thead><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></thead>
     <tbody><tr></tr></tbody>
-    <tfoot><tr><th>#</th><th>Title</th><th>Author</th><th>State</th><th>Approved</th><th>Pending comments</th></tr></tfoot>
+    <tfoot><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></tfoot>
   </table>
   <div id="closed_pull_requests_message"></div>
 </div>
