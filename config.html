@@ -10,10 +10,11 @@
   <script type="text/javascript">
     // Handle the form submit to store the values in local storage.
     function handleSubmit() {
-      // Clearing the approval method config from storage before saving the new
+      // Clearing some config from storage before saving the new
       // value(s).
       localStorage.removeItem('approval_method-reaction');
       localStorage.removeItem('approval_method-label');
+      localStorage.removeItem('static');
 
       localStorage.setItem('endpoint', $('input#endpoint').val());
       localStorage.setItem('org', $('input#org').val());
@@ -21,12 +22,15 @@
       localStorage.setItem('token', $('input#token').val());
       localStorage.setItem('username', $('input#username').val());
       localStorage.setItem('hide_closed', $('input#hide_closed').prop('checked'));
-      localStorage.setItem('degraded', $('input#hide_closed').prop('degraded'));
 
       let approval_method = $('select#approval_method').val();
       localStorage.setItem('approval_method', approval_method);
       if ($('#approval_method-' + approval_method) !== undefined) {
         localStorage.setItem('approval_method-' + approval_method, $('#approval_method-' + approval_method).val());
+      }
+
+      if ($('input#degraded').prop('checked')) {
+        localStorage.setItem('static', $('textarea#static').val());
       }
 
       return false;
@@ -40,7 +44,8 @@
       $('input#token').val(localStorage.getItem('token'));
       $('input#username').val(localStorage.getItem('username'));
       $('input#hide_closed').prop('checked', JSON.parse(localStorage.getItem('hide_closed')));
-      $('input#degraded').prop('checked', JSON.parse(localStorage.getItem('degraded')));
+      $('input#degraded').prop('checked', localStorage.getItem('static') !== undefined);
+      $('textarea#static').val(localStorage.getItem('static'));
       $('select#approval_method').val(localStorage.getItem('approval_method'));
 
       $('div[id^=fieldset-approval_method-]').hide();
@@ -54,6 +59,17 @@
       $('select#approval_method').change(function() {
         $('div[id^=fieldset-approval_method-]').hide();
         $('div#fieldset-approval_method-' + $('select#approval_method').val()).show();
+      });
+
+      if (localStorage.getItem('static') === undefined) {
+        $('textarea#static').hide();
+      }
+
+      $('input#degraded').change(function() {
+        $('textarea#static').hide();
+        if ($('input#degraded').prop('checked')) {
+          $('textarea#static').show();
+        }
       });
     });
   </script>
@@ -241,6 +257,12 @@
         <div id="degraded_help" class="form-text">Don't use the API but read data from a response.json file. The file must be placed in the same folder than the dashboard and must be named response.json</div>
       </div>
     </div>
+
+    <div class="row g-3 align-items-center">
+      <textarea id="static"></textarea>
+    </div>
+
+
   </fieldset>
 
   <br/>

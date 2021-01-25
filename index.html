@@ -126,16 +126,15 @@
         }
       };
 
-      let response = {};
-      if (!localStorage.getItem('degraded')) {
-        response = await fetch(localStorage.getItem('endpoint'), options);
+      let data = {};
+      if (!localStorage.getItem('static')) {
+        const response = await fetch(localStorage.getItem('endpoint'), options);
+        data = await response.json();
 
       }
       else {
-        response = await fetch('./response.json');
+        data = JSON.parse(localStorage.getItem('static'));
       }
-
-      const data = await response.json();
 
       // @TODO: Improve error management.
       if (data['errors']) {
@@ -155,212 +154,210 @@
 
     // Redirect to the config page if the variables are not configured.
     // We don't do the check if we are using the degraded mode.
-    if (!localStorage.getItem('degraded') && (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username'))) {
+    if (!localStorage.getItem('static') && (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username'))) {
       window.location.replace('/config.html');
     }
 
-    fetchPulls().then(pulls => {
-      $('#loading').html('');
-      if (pulls === undefined) {
-        $('#loading').html('An error occurred. Please check the console.');
-      }
-      else if (localStorage.getItem('degraded')) {
-        $('#loading').html('<div class="alert alert-warning" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>Data are coming from local "response.json" file.</div>');
-      }
-
-      let closed = 0;
-      pulls.forEach(pull => {
-        // Hide closed (not merged) PRs if configured.
-        if (pull.closed && !pull.merged && JSON.parse(localStorage.getItem('hide_closed'))) {
-          closed++;
-          return;
+    $(document).ready(function() {
+      fetchPulls().then(pulls => {
+        $('#loading').html('');
+        if (pulls === undefined) {
+          $('#loading').html('An error occurred. Please check the console.');
+        } else if (localStorage.getItem('static')) {
+          $('#loading').html('<div class="alert alert-warning" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>Data are coming from settings.</div>');
         }
 
-        // Counts the threads opened by current user but unresolved or resolved
-        // by another user.
-        comments = 0;
-        misapproved = 0;
-        pull.reviewThreads.nodes.forEach(thread => {
-          if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) /*&& !thread.isOutdated*/ && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
-            comments++;
+        let closed = 0;
+        pulls.forEach(pull => {
+          // Hide closed (not merged) PRs if configured.
+          if (pull.closed && !pull.merged && JSON.parse(localStorage.getItem('hide_closed'))) {
+            closed++;
+            return;
           }
 
-          if (thread.comments.edges[0].node.author.login === localStorage.getItem('username') && thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username')) {
-            misapproved++;
-          }
-        });
-
-        // Check if the PR has been approved.
-        hasApproved = false;
-        approvalAdditionalInfo = '';
-
-        // Check if the PR has been approved via a reaction. The reaction must
-        // be added by the selected user and associated with the pull request's
-        // description. Any reaction given to a comment or inside a comment
-        // won't be considered.
-        if (localStorage.getItem('approval_method') === 'reaction' && localStorage.getItem('approval_method-reaction') !== undefined) {
-          pull.reactions.nodes.forEach(reaction => {
-            if (reaction.content === localStorage.getItem('approval_method-reaction') && reaction.user.login === localStorage.getItem('username')) {
-              hasApproved = true;
+          // Counts the threads opened by current user but unresolved or resolved
+          // by another user.
+          comments = 0;
+          misapproved = 0;
+          pull.reviewThreads.nodes.forEach(thread => {
+            if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) /*&& !thread.isOutdated*/ && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
+              comments++;
             }
-          });
-        }
 
-        // Check if the PR has been approved via a label. Show a tooltip in case
-        // the label has been added by someone else or has been removed by
-        // someone else.
-        if (localStorage.getItem('approval_method') === 'label' && localStorage.getItem('approval_method-label') !== undefined) {
-          hasLabel = false;
-          pull.labels.nodes.forEach(label => {
-            if (label.name === localStorage.getItem('approval_method-label')) {
-              hasLabel = true;
+            if (thread.comments.edges[0].node.author.login === localStorage.getItem('username') && thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username')) {
+              misapproved++;
             }
           });
 
-          latestCreatedAt = 0;
-          pull.labeled.nodes.forEach(item => {
-            if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestCreatedAt) {
-              latestCreatedAt = Date.parse(item.createdAt);
-            }
-          });
+          // Check if the PR has been approved.
+          hasApproved = false;
+          approvalAdditionalInfo = '';
 
-          latestRemovalAt = 0;
-          pull.unlabeled.nodes.forEach(item => {
-            if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestRemovalAt) {
-              latestRemovalAt = Date.parse(item.createdAt);
-            }
-          });
-
-          if (latestCreatedAt > latestRemovalAt) {
-            hasApproved = true;
-
-            if (!hasLabel) {
-              approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> has been removed later by another user.';
-            }
-          }
-          else if (hasLabel) {
-            approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> is present but it has been added by another user.';
-          }
-        }
-
-        // Check if the PR has been approved via a review.
-        // Because a same user can give multiple reviews, we use the review time
-        // to find if the latest one is "APPROVED". "COMMENTED" is considered
-        // informational and so it does not impact the state. Other states are
-        // considered non approved.
-        if (localStorage.getItem('approval_method') === 'reviewer') {
-          latestReviewTime = 0;
-          pull.reviews.nodes.forEach(review => {
-            if (review.author.login === localStorage.getItem('username') && Date.parse(review.submittedAt) > latestReviewTime) {
-              latestReviewTime = Date.parse(review.submittedAt);
-
-              if (review.state === 'APPROVED') {
+          // Check if the PR has been approved via a reaction. The reaction must
+          // be added by the selected user and associated with the pull request's
+          // description. Any reaction given to a comment or inside a comment
+          // won't be considered.
+          if (localStorage.getItem('approval_method') === 'reaction' && localStorage.getItem('approval_method-reaction') !== undefined) {
+            pull.reactions.nodes.forEach(reaction => {
+              if (reaction.content === localStorage.getItem('approval_method-reaction') && reaction.user.login === localStorage.getItem('username')) {
                 hasApproved = true;
               }
-              else if (review.state === 'CHANGES_REQUESTED' || review.state === 'DISMISSED' || review.state === 'PENDING') {
-                hasApproved = false;
-              }
-            }
-          });
-        }
-
-        approvalTooltip = '';
-        if (approvalAdditionalInfo !== '') {
-          approvalTooltip = '<i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" title="' + approvalAdditionalInfo + '"></i>';
-        }
-
-        commentTooltip = '';
-        if (misapproved > 0) {
-          commentTooltip = '<i class="bi bi-exclamation-triangle-fill" data-toggle="tooltip" data-bs-html="true" title="' + misapproved + ' comment' + ((misapproved > 1) ? 's have' : ' has') + ' been approved by someone else."></i>'
-        }
-
-        stateIcon = '<svg style="fill: #22863a;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
-        if (pull.state === 'CLOSED') {
-          stateIcon = '<svg style="fill: #cb2431;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
-        }
-        else if (pull.state === 'MERGED') {
-          stateIcon = '<svg style="fill: #6f42c1;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M5 3.254V3.25v.005a.75.75 0 110-.005v.004zm.45 1.9a2.25 2.25 0 10-1.95.218v5.256a2.25 2.25 0 101.5 0V7.123A5.735 5.735 0 009.25 9h1.378a2.251 2.251 0 100-1.5H9.25a4.25 4.25 0 01-3.8-2.346zM12.75 9a.75.75 0 100-1.5.75.75 0 000 1.5zm-8.5 4.5a.75.75 0 100-1.5.75.75 0 000 1.5z"></path></svg>'
-        }
-
-
-        $('#data_table tbody tr:last').after(
-          '<tr>' +
-          '<td>' + pull.number + '</td>' +
-          '<td><a href="' + pull.url + '" target="_blank"><span>' + pull.title + '</span></a></td>' +
-          '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/><span>' + pull.author.login + '</span></td>' +
-          '<td>' + stateIcon + '<span class="d-none">' + capitalize(pull.state.toLowerCase()) + '</span></td>' +
-          '<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
-          '<td><span>' + comments + '</span>' + commentTooltip + '</td>' +
-          '</tr>'
-        )
-      });
-      //
-
-      $('#data_table tbody tr:first').remove();
-
-      $('#data_table').dataTable({
-        initComplete: function() {
-          this.api().columns().every(function() {
-            // Get the column title and normalize it.
-            var title = this.header();
-            title = $(title).html().replace(/[\W]/g, '-');
-
-            var column = this;
-            var select = $('<select id="' + title + '" class="select2" ></select>')
-              .appendTo($(column.footer()).empty())
-              .on('change', function () {
-
-                // Get the "text" property from each selected data
-                // regex escape the value and store in array.
-                var data = $.map( $(this).select2('data'), function( value, key ) {
-                  return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
-                });
-                // If no data selected use "".
-                if (data.length === 0) {
-                  data = [""];
-                }
-
-                // Join array into string with regex or (|).
-                var val = data.join('|');
-
-                // Search for the option(s) selected
-                column
-                  .search( val ? val : '', true, false )
-                  .draw();
             });
-
-            // Get all the options from the column, filter and group them
-            // before adding them to a select list.
-            column.data().map( function (value, index) {
-              matches = value.match(/<span[^>]*>([^<]+)<\/span>/);
-              if (matches) {
-                return matches[1];
-              }
-              return value;
-            }).unique().sort().map( function (value, index) {
-              select.append('<option value="' + value + '">' + value + '</option>');
-            });
-
-            // Use column title as selector and placeholder values.
-            $('#' + title).select2({
-              multiple: true,
-              closeOnSelect: false,
-              //placeholder: 'Select v',
-              width: '100%',
-              theme: "classic",
-            });
-
-            // Initially clear select otherwise first option is selected.
-            $('.select2').val(null).trigger('change');
-          });
-
-          $('#data_table').show();
-          $('[data-toggle="tooltip"]').tooltip();
-
-          if (closed > 0) {
-            $('#closed_pull_requests_message').html(closed + ' closed pull request' + ((closed > 1) ? 's are' : ' is') + ' hidden.');
           }
-        }
+
+          // Check if the PR has been approved via a label. Show a tooltip in case
+          // the label has been added by someone else or has been removed by
+          // someone else.
+          if (localStorage.getItem('approval_method') === 'label' && localStorage.getItem('approval_method-label') !== undefined) {
+            hasLabel = false;
+            pull.labels.nodes.forEach(label => {
+              if (label.name === localStorage.getItem('approval_method-label')) {
+                hasLabel = true;
+              }
+            });
+
+            latestCreatedAt = 0;
+            pull.labeled.nodes.forEach(item => {
+              if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestCreatedAt) {
+                latestCreatedAt = Date.parse(item.createdAt);
+              }
+            });
+
+            latestRemovalAt = 0;
+            pull.unlabeled.nodes.forEach(item => {
+              if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestRemovalAt) {
+                latestRemovalAt = Date.parse(item.createdAt);
+              }
+            });
+
+            if (latestCreatedAt > latestRemovalAt) {
+              hasApproved = true;
+
+              if (!hasLabel) {
+                approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> has been removed later by another user.';
+              }
+            } else if (hasLabel) {
+              approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> is present but it has been added by another user.';
+            }
+          }
+
+          // Check if the PR has been approved via a review.
+          // Because a same user can give multiple reviews, we use the review time
+          // to find if the latest one is "APPROVED". "COMMENTED" is considered
+          // informational and so it does not impact the state. Other states are
+          // considered non approved.
+          if (localStorage.getItem('approval_method') === 'reviewer') {
+            latestReviewTime = 0;
+            pull.reviews.nodes.forEach(review => {
+              if (review.author.login === localStorage.getItem('username') && Date.parse(review.submittedAt) > latestReviewTime) {
+                latestReviewTime = Date.parse(review.submittedAt);
+
+                if (review.state === 'APPROVED') {
+                  hasApproved = true;
+                } else if (review.state === 'CHANGES_REQUESTED' || review.state === 'DISMISSED' || review.state === 'PENDING') {
+                  hasApproved = false;
+                }
+              }
+            });
+          }
+
+          approvalTooltip = '';
+          if (approvalAdditionalInfo !== '') {
+            approvalTooltip = '<i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" title="' + approvalAdditionalInfo + '"></i>';
+          }
+
+          commentTooltip = '';
+          if (misapproved > 0) {
+            commentTooltip = '<i class="bi bi-exclamation-triangle-fill" data-toggle="tooltip" data-bs-html="true" title="' + misapproved + ' comment' + ((misapproved > 1) ? 's have' : ' has') + ' been approved by someone else."></i>'
+          }
+
+          stateIcon = '<svg style="fill: #22863a;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
+          if (pull.state === 'CLOSED') {
+            stateIcon = '<svg style="fill: #cb2431;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path></svg>';
+          } else if (pull.state === 'MERGED') {
+            stateIcon = '<svg style="fill: #6f42c1;" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M5 3.254V3.25v.005a.75.75 0 110-.005v.004zm.45 1.9a2.25 2.25 0 10-1.95.218v5.256a2.25 2.25 0 101.5 0V7.123A5.735 5.735 0 009.25 9h1.378a2.251 2.251 0 100-1.5H9.25a4.25 4.25 0 01-3.8-2.346zM12.75 9a.75.75 0 100-1.5.75.75 0 000 1.5zm-8.5 4.5a.75.75 0 100-1.5.75.75 0 000 1.5z"></path></svg>'
+          }
+
+
+          $('#data_table tbody tr:last').after(
+            '<tr>' +
+            '<td>' + pull.number + '</td>' +
+            '<td><a href="' + pull.url + '" target="_blank"><span>' + pull.title + '</span></a></td>' +
+            '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/><span>' + pull.author.login + '</span></td>' +
+            '<td>' + stateIcon + '<span class="d-none">' + capitalize(pull.state.toLowerCase()) + '</span></td>' +
+            '<td><span>' + (hasApproved ? 'Yes' : 'No') + '</span>' + approvalTooltip + '</td>' +
+            '<td><span>' + comments + '</span>' + commentTooltip + '</td>' +
+            '</tr>'
+          )
+        });
+        //
+
+        $('#data_table tbody tr:first').remove();
+
+        $('#data_table').dataTable({
+          initComplete: function () {
+            this.api().columns().every(function () {
+              // Get the column title and normalize it.
+              var title = this.header();
+              title = $(title).html().replace(/[\W]/g, '-');
+
+              var column = this;
+              var select = $('<select id="' + title + '" class="select2" ></select>')
+                .appendTo($(column.footer()).empty())
+                .on('change', function () {
+
+                  // Get the "text" property from each selected data
+                  // regex escape the value and store in array.
+                  var data = $.map($(this).select2('data'), function (value, key) {
+                    return value.text ? '^' + $.fn.dataTable.util.escapeRegex(value.text) + '$' : null;
+                  });
+                  // If no data selected use "".
+                  if (data.length === 0) {
+                    data = [""];
+                  }
+
+                  // Join array into string with regex or (|).
+                  var val = data.join('|');
+
+                  // Search for the option(s) selected
+                  column
+                    .search(val ? val : '', true, false)
+                    .draw();
+                });
+
+              // Get all the options from the column, filter and group them
+              // before adding them to a select list.
+              column.data().map(function (value, index) {
+                matches = value.match(/<span[^>]*>([^<]+)<\/span>/);
+                if (matches) {
+                  return matches[1];
+                }
+                return value;
+              }).unique().sort().map(function (value, index) {
+                select.append('<option value="' + value + '">' + value + '</option>');
+              });
+
+              // Use column title as selector and placeholder values.
+              $('#' + title).select2({
+                multiple: true,
+                closeOnSelect: false,
+                //placeholder: 'Select v',
+                width: '100%',
+                theme: "classic",
+              });
+
+              // Initially clear select otherwise first option is selected.
+              $('.select2').val(null).trigger('change');
+            });
+
+            $('#data_table').show();
+            $('[data-toggle="tooltip"]').tooltip();
+
+            if (closed > 0) {
+              $('#closed_pull_requests_message').html(closed + ' closed pull request' + ((closed > 1) ? 's are' : ' is') + ' hidden.');
+            }
+          }
+        });
       });
     });
     </script>
