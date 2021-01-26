@@ -33,6 +33,9 @@
         localStorage.setItem('static', $('textarea#static').val());
       }
 
+      $('div#status').html('<div class="alert alert-success" role="alert">Settings have been updated</div>');
+      window.scrollTo(0,0);
+
       return false;
     }
 
@@ -84,10 +87,18 @@
       padding: inherit;
       color: #6c757d;
     }
+    div#status {
+      margin-top: 10px;
+    }
+    textarea {
+      border-radius: .25rem;
+      width: 100%;
+    }
   </style>
 </head>
 <body class="container">
 > <a href="index.html">Return to the dashboard</a>
+<div id="status"></div>
 <form onsubmit="return handleSubmit();">
   <fieldset class="form-group border p-2">
     <legend class="w-auto">Github access</legend>

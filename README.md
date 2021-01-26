@@ -52,5 +52,4 @@ request.
 - Add an option to track only specific target branches (to avoid reviewing feature branches for example)
 - Cache the graphQL response for sometime
 - Store the config in keyed array so it is possible to switch between profiles
-- Display a success message or redirect after config submit
 - Add info about number of addition/deletion and files impacted
