@@ -294,6 +294,9 @@
             '<td>' + comments + '</td>' +
             '<td><img src="' + pull.author.avatarUrl + '" class="avatar-user" width="26" height="26"/></td>' +
             '<td>' + commentTooltip + '</td>' +
+            '<td>' + pull.changedFiles + '</td>' +
+            '<td>' + pull.additions + '</td>' +
+            '<td>' + pull.deletions + '</td>' +
             '</tr>'
           )
         });
@@ -327,7 +330,36 @@
             {
               'render': function (data, type, row) {
                 if (type === 'display') {
-                  return '<a href="' + row[2] + '" target="_blank">' + row[1] + '</a>';
+                  var addition = parseInt(row[12]);
+                  var deletion = parseInt(row[13]);
+
+                  var add = Math.round(addition/3);
+                  if (add === 0) {
+                    add = 1;
+                  }
+                  var del = Math.round(deletion/3);
+                  if (del === 0) {
+                    del = 1;
+                  }
+
+                  if(add+del > 5) {
+                    var add = Math.floor(add/((add+del)/5));
+                    var del = Math.floor(del/((add+del)/5));
+                  }
+
+                  var diffstat = '';
+                  for (i = 1; i <= add; i++) {
+                    diffstat += '<span class="diffstat-block-added"></span>';
+                  }
+                  for (i = 1; i <= del; i++) {
+                    diffstat += '<span class="diffstat-block-deleted"></span>';
+                  }
+                  for (i=(add+del); i < 5; i++) {
+                    diffstat += '<span class="diffstat-block-neutral"></span>';
+                  }
+
+                  return '<div><a href="' + row[2] + '" target="_blank">' + row[1] + '</a></div>' +
+                    '<div><i class="bi bi-file-earmark-diff"></i>' + row[11] + ' <span class="diffstat"> <span class="text-green">+' + row[12] + '</span> <span class="text-red">-' + row[13] + '</span> <span class="diffstat-blocks">' + diffstat + '</span></span></div>';
                 }
                 return data;
 
@@ -356,7 +388,7 @@
             },
             {
               'visible': false,
-              'targets': [2, 5, 7, 9, 10]
+              'targets': [2, 5, 7, 9, 10, 11, 12, 13]
             },
           ],
           'initComplete': function () {
@@ -446,6 +478,43 @@
         vertical-align: middle;
         border-style: none;
         margin-right: .6rem;
+      }
+      .bi-file-earmark-diff {
+        margin-left: 0 !important;
+      }
+      .diffstat {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .diffstat .text-green{
+        color: #22863a;
+      }
+      .diffstat .text-red{
+        color: #cb2431;
+      }
+      .diffstat-block-added{
+        background-color: #28a745;
+        outline: #28a745;
+      }
+      .diffstat-block-deleted {
+        background-color: #d73a49;
+        outline: #d73a49;
+      }
+      .diffstat-block-neutral {
+        background-color: #d1d5da;
+        outline: #d1d5da;
+      }
+      .diffstat-blocks {
+        position: relative;
+      }
+      .diffstat-block-added,
+      .diffstat-block-deleted,
+      .diffstat-block-neutral {
+        display:inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 1px;
+        outline-offset: -1px;
       }
     </style>
 </head>
