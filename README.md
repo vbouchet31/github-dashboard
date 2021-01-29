@@ -9,6 +9,8 @@ has not approved yet.
 This dashboard does not store any information about the pull requests states or
 comments. It does not update anything on Github.
 
+![Preview](https://github.com/vbouchet31/github-dashboard/blob/main/preview.png?raw=true)
+
 # Configuration
 Visit the settings form on /config.html
 
