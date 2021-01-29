@@ -40,9 +40,6 @@ approved or not.
   selected user. This comment must be added to the PR, not as a code review 
   on a file.
 
-- hide closed: Show or hide the pull requests which have been closed without 
-being merged.
-
 # Technical details
 The system uses GraphQL API to gather all the information in a unique POST
 request.
