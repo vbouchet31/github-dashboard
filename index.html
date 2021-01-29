@@ -16,11 +16,22 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
 
-  <script type="text/javascript">
-    async function fetchPulls() {
-      var org = localStorage.getItem('org');
-      var repo = localStorage.getItem('repo');
+  <link rel="stylesheet" href="style.css">
 
+  <script type="text/javascript">
+    // Get the settings of the active/selected account.
+    var activeAccount = localStorage.getItem('activeAccount');
+    const accounts = JSON.parse(localStorage.getItem('accounts'));
+    if (activeAccount === undefined || accounts[activeAccount] === undefined) {
+      activeAccount = Object.keys(accounts)[0];
+
+      if (activeAccount === undefined) {
+        window.location.replace('/config.html');
+      }
+    }
+    const settings = accounts[activeAccount];
+
+    async function fetchPulls() {
       const options = {
         method: 'POST',
         body: JSON.stringify({ query: `
@@ -117,23 +128,23 @@
           }
         `,
         variables: {
-          "org": org,
-          "repo": repo
+          "org": settings['org'],
+          "repo": settings['repo']
         }}),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'token ' + localStorage.getItem('token')
+          'Authorization': 'token ' + settings['token']
         }
       };
 
       let data = {};
-      if (!localStorage.getItem('static')) {
-        const response = await fetch(localStorage.getItem('endpoint'), options);
+      if (!settings['static_data']) {
+        const response = await fetch(settings['endpoint'], options);
         data = await response.json();
 
       }
       else {
-        data = JSON.parse(localStorage.getItem('static'));
+        data = JSON.parse(settings['static_data']);
       }
 
       // @TODO: Improve error management.
@@ -147,6 +158,7 @@
       return data['data']['repository']['pullRequests']['nodes'];
     }
 
+    // Helper function to capitalize the first character of a string.
     const capitalize = (s) => {
       if (typeof s !== 'string') return '';
       return s.charAt(0).toUpperCase() + s.slice(1)
@@ -154,8 +166,8 @@
 
     // Redirect to the config page if the variables are not configured.
     // We don't do the check if we are using the degraded mode.
-    if (!localStorage.getItem('static') && (!localStorage.getItem('endpoint') || !localStorage.getItem('org') || !localStorage.getItem('repo') || !localStorage.getItem('token') || !localStorage.getItem('username'))) {
-      window.location.replace('/config.html');
+    if (!settings['static'] && (!settings['endpoint'] || !settings['org'] || !settings['repo'] || !settings['token'] || !settings['username'])) {
+      window.location.replace('/config.html?account=new');
     }
 
     $(document).ready(function() {
@@ -164,28 +176,21 @@
         $('#loading').html('');
         if (pulls === undefined) {
           $('#loading').html('An error occurred. Please check the console.');
-        } else if (localStorage.getItem('static')) {
+        } else if (settings['static']) {
           $('#loading').html('<div class="alert alert-warning" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>Data are coming from settings.</div>');
         }
 
-        let closed = 0;
         pulls.forEach(pull => {
-          // Hide closed (not merged) PRs if configured.
-          if (pull.closed && !pull.merged && JSON.parse(localStorage.getItem('hide_closed'))) {
-            closed++;
-            return;
-          }
-
           // Counts the threads opened by current user but unresolved or resolved
           // by another user.
           comments = 0;
           misapproved = 0;
           pull.reviewThreads.nodes.forEach(thread => {
-            if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username'))) /*&& !thread.isOutdated*/ && thread.comments.edges[0].node.author.login === localStorage.getItem('username')) {
+            if ((!thread.isResolved || (thread.isResolved && thread.resolvedBy.login !== settings['username'])) /*&& !thread.isOutdated*/ && thread.comments.edges[0].node.author.login === settings['username']) {
               comments++;
             }
 
-            if (thread.comments.edges[0].node.author.login === localStorage.getItem('username') && thread.isResolved && thread.resolvedBy.login !== localStorage.getItem('username')) {
+            if (thread.comments.edges[0].node.author.login === settings['username'] && thread.isResolved && thread.resolvedBy.login !== settings['username']) {
               misapproved++;
             }
           });
@@ -198,9 +203,9 @@
           // be added by the selected user and associated with the pull request's
           // description. Any reaction given to a comment or inside a comment
           // won't be considered.
-          if (localStorage.getItem('approval_method') === 'reaction' && localStorage.getItem('approval_method-reaction') !== undefined) {
+          if (settings['approval']['method'] === 'reaction' && settings['approval']['settings']['reaction'] !== undefined) {
             pull.reactions.nodes.forEach(reaction => {
-              if (reaction.content === localStorage.getItem('approval_method-reaction') && reaction.user.login === localStorage.getItem('username')) {
+              if (reaction.content === settings['approval']['settings']['reaction'] && reaction.user.login === settings['username']) {
                 hasApproved = true;
               }
             });
@@ -209,24 +214,24 @@
           // Check if the PR has been approved via a label. Show a tooltip in case
           // the label has been added by someone else or has been removed by
           // someone else.
-          if (localStorage.getItem('approval_method') === 'label' && localStorage.getItem('approval_method-label') !== undefined) {
+          if (settings['approval']['method'] === 'label' && settings['approval']['settings']['label'] !== undefined) {
             hasLabel = false;
             pull.labels.nodes.forEach(label => {
-              if (label.name === localStorage.getItem('approval_method-label')) {
+              if (label.name === settings['approval']['settings']['label']) {
                 hasLabel = true;
               }
             });
 
             latestCreatedAt = 0;
             pull.labeled.nodes.forEach(item => {
-              if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestCreatedAt) {
+              if (item.label.name === settings['approval']['settings']['label'] && item.actor.login === settings['username'] && Date.parse(item.createdAt) > latestCreatedAt) {
                 latestCreatedAt = Date.parse(item.createdAt);
               }
             });
 
             latestRemovalAt = 0;
             pull.unlabeled.nodes.forEach(item => {
-              if (item.label.name === localStorage.getItem('approval_method-label') && item.actor.login === localStorage.getItem('username') && Date.parse(item.createdAt) > latestRemovalAt) {
+              if (item.label.name === settings['approval']['settings']['label'] && item.actor.login === settings['username'] && Date.parse(item.createdAt) > latestRemovalAt) {
                 latestRemovalAt = Date.parse(item.createdAt);
               }
             });
@@ -235,10 +240,10 @@
               hasApproved = true;
 
               if (!hasLabel) {
-                approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> has been removed later by another user.';
+                approvalAdditionalInfo = 'The label <b>' + settings['approval']['settings']['label'] + '</b> has been removed later by another user.';
               }
             } else if (hasLabel) {
-              approvalAdditionalInfo = 'The label <b>' + localStorage.getItem('approval_method-label') + '</b> is present but it has been added by another user.';
+              approvalAdditionalInfo = 'The label <b>' + settings['approval']['settings']['label'] + '</b> is present but it has been added by another user.';
             }
           }
 
@@ -247,10 +252,10 @@
           // to find if the latest one is "APPROVED". "COMMENTED" is considered
           // informational and so it does not impact the state. Other states are
           // considered non approved.
-          if (localStorage.getItem('approval_method') === 'reviewer') {
+          if (settings['approval']['method'] === 'reviewer') {
             latestReviewTime = 0;
             pull.reviews.nodes.forEach(review => {
-              if (review.author.login === localStorage.getItem('username') && Date.parse(review.submittedAt) > latestReviewTime) {
+              if (review.author.login === settings['username'] && Date.parse(review.submittedAt) > latestReviewTime) {
                 latestReviewTime = Date.parse(review.submittedAt);
 
                 if (review.state === 'APPROVED') {
@@ -300,7 +305,6 @@
             '</tr>'
           )
         });
-        //
 
         $('#data_table tbody tr:first').remove();
 
@@ -330,6 +334,9 @@
             {
               'render': function (data, type, row) {
                 if (type === 'display') {
+                  // @TODO: Diffstat math must be reviewed.
+                  // +138/-38 gives 3 green and 4 red blocks.
+                  // Total number of blocks is not constant.
                   var addition = parseInt(row[12]);
                   var deletion = parseInt(row[13]);
 
@@ -343,8 +350,8 @@
                   }
 
                   if(add+del > 5) {
-                    var add = Math.floor(add/((add+del)/5));
-                    var del = Math.floor(del/((add+del)/5));
+                    add = Math.floor(add/((add+del)/5));
+                    del = Math.floor(del/((add+del)/5));
                   }
 
                   var diffstat = '';
@@ -448,89 +455,67 @@
             });
 
             // Adjust the table and columns size.
-            $('#data_table').show().width('100%');
+            $('.card').show();
+            $('.card table').width('100%');
+            $('.card table').removeClass('d-none');
             $($('#data_table').dataTable().api().column(4).header()).width('20px');
             $($('#data_table').dataTable().api().column(6).header()).width('20px');
             $($('#data_table').dataTable().api().column(8).header()).width('20px');
 
             // Enable tooltips.
             $('[data-toggle="tooltip"]').tooltip();
-
-            // Display a message with number of closed PRs which are hidden.
-            if (closed > 0) {
-              $('#closed_pull_requests_message').html(closed + ' closed pull request' + ((closed > 1) ? 's are' : ' is') + ' hidden.');
-            }
           }
         });
       });
+
+      $('.dropdown-toggle').html('<i class="bi bi-' + settings['type'] + '"></i>' + settings['org'] + '/' + settings['repo']);
+
+      var prepend = '';
+      for (const [accountName, accountSettings] of Object.entries(accounts)) {
+        prepend += '<span class="dropdown-item ' + ((accountName === activeAccount) ? 'active' : '') + '"><a href="/config.html?account=' + accountName + '"><i class="bi bi-gear"></i></a><a href="#" class="account-switcher" data-account="' + accountName + '">' + accountName + '</a></span>'
+      }
+      $('.dropdown-menu').prepend(prepend);
+
+      $('.dropdown a.account-switcher').on('click', function() {
+        localStorage.setItem('activeAccount', $(this).attr('data-account'));
+        location.reload();
+      })
     });
     </script>
-
-    <style>
-      i.bi{
-        margin: .4rem;
-      }
-      img.avatar-user{
-        border-radius: 50%;
-        display: inline-block;
-        overflow: hidden;
-        line-height: 1;
-        vertical-align: middle;
-        border-style: none;
-        margin-right: .6rem;
-      }
-      .bi-file-earmark-diff {
-        margin-left: 0 !important;
-      }
-      .diffstat {
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .diffstat .text-green{
-        color: #22863a;
-      }
-      .diffstat .text-red{
-        color: #cb2431;
-      }
-      .diffstat-block-added{
-        background-color: #28a745;
-        outline: #28a745;
-      }
-      .diffstat-block-deleted {
-        background-color: #d73a49;
-        outline: #d73a49;
-      }
-      .diffstat-block-neutral {
-        background-color: #d1d5da;
-        outline: #d1d5da;
-      }
-      .diffstat-blocks {
-        position: relative;
-      }
-      .diffstat-block-added,
-      .diffstat-block-deleted,
-      .diffstat-block-neutral {
-        display:inline-block;
-        width: 8px;
-        height: 8px;
-        margin-left: 1px;
-        outline-offset: -1px;
-      }
-    </style>
 </head>
-<body class="container">
-> <a href="config.html">Settings</a>
-<div style="margin-top: 10px;">
-  <div id="loading">Loading data. Please wait...</div>
-  <table id="data_table" style="display: none;" class="table table-striped table-bordered compact">
-    <thead><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></thead>
-    <tbody><tr></tr></tbody>
-    <tfoot><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></tfoot>
-  </table>
-  <div id="closed_pull_requests_message"></div>
-</div>
+<body>
+  <div id="wrapper">
+    <div id="content-wrapper">
+      <div id="content">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white topbar static-top shadow">
+          <div class="navbar-nav ml-auto">
+            <div class="dropdown nav-item">
+              <button class="nav-link btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span class="placeholder"></span>
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" href="/config.html?account=new"><i class="bi bi-plus-square"></i>Configure new account</a>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
 
+      <div class="content-fluid">
+        <div class="card shadow">
+          <div class="card-body">
+            <div id="loading">Loading data. Please wait...</div>
+            <table id="data_table" class="table table-striped table-bordered compact d-none">
+              <thead><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></thead>
+              <tbody><tr></tr></tbody>
+              <tfoot><tr><th>#</th><th>Title</th><th>Url</th><th>Author</th><th>State</th><th>State icon</th><th>Approved</th><th>Approval tooltip</th><th>Pending comments</th><th>Avatar url</th><th>Comments tooltip</th></tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
 </body>
 </html>

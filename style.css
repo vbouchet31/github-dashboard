@@ -1,0 +1,157 @@
+nav i {
+    font-size: 34px;
+    color: #d1d3e2;
+}
+nav i:hover {
+    color: #b7b9cc;
+}
+.content-fluid {
+    padding: 1.5rem;
+}
+.card .card-header {
+    color: #858796;
+    text-decoration: none;
+}
+.card .card-header[data-toggle=collapse] h6::after {
+    padding-right: 1.725rem;
+    line-height: 51px;
+    font-weight: 900;
+    color: #d1d3e2;
+    content: "";
+    border: solid;
+    border-width: 0 3px 3px 0;
+    display: inline-block;
+    padding: 3px;
+    margin-left: .4rem;
+    float: right;
+    transform: rotate(45deg);
+    -webkit-transform: rotate(45deg);
+}
+.card .card-header[data-toggle="collapse"].collapsed h6::after {
+    transform: rotate(-45deg);
+    -webkit-transform: rotate(-45deg);
+}
+thead {
+    color: #858796;
+}
+thead>tr>th {
+    vertical-align: middle !important;
+}
+thead .sorting_desc:after,
+thead .sorting_desc:before,
+thead .sorting_asc:after,
+thead .sorting_asc:before,
+thead .sorting:after,
+thead .sorting:before {
+    bottom: 1.5em !important;
+}
+i.bi{
+    margin: .4rem;
+}
+img.avatar-user{
+    border-radius: 50%;
+    display: inline-block;
+    overflow: hidden;
+    line-height: 1;
+    vertical-align: middle;
+    border-style: none;
+    margin-right: .6rem;
+}
+.bi-file-earmark-diff {
+    margin-left: 0 !important;
+    margin-right: .2rem !important;
+}
+.diffstat {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.diffstat .text-green{
+    color: #22863a;
+}
+.diffstat .text-red{
+    color: #cb2431;
+}
+.diffstat-block-added{
+    background-color: #28a745;
+    outline: #28a745;
+}
+.diffstat-block-deleted {
+    background-color: #d73a49;
+    outline: #d73a49;
+}
+.diffstat-block-neutral {
+    background-color: #d1d5da;
+    outline: #d1d5da;
+}
+.diffstat-blocks {
+    position: relative;
+}
+.diffstat-block-added,
+.diffstat-block-deleted,
+.diffstat-block-neutral {
+    display:inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 1px;
+    outline-offset: -1px;
+}
+.navbar-light .navbar-nav .nav-link,
+.navbar-light .navbar-nav .nav-link:hover,
+.navbar-light .navbar-nav .nav-link:focus {
+    color: white !important;
+}
+.nav-item .btn i {
+    font-size: 1.2rem;
+    color: white;
+}
+.nav-item .btn.back::after {
+    content: "";
+    border: solid;
+    border-width: 0 3px 3px 0;
+    display: inline-block;
+    padding: 3px;
+    margin-left: .4rem;
+    transform: rotate(-45deg);
+    -webkit-transform: rotate(-45deg);
+}
+.dropdown-menu {
+    right: 0 !important;
+    left: auto;
+}
+.dropdown-toggle .placeholder {
+    display: inline-block;
+    height: 18px;
+    width: 120px;
+    background-color: white;
+    vertical-align: middle;
+    opacity: 20%;
+    border-radius: 0.25rem;
+}
+.dropdown-item i {
+    font-size: .8rem;
+    margin: 0 .5rem;
+}
+.active .account-switcher,
+.active .account-switcher:hover,
+.active .account-switcher:active {
+    color: white;
+}
+.account-switcher,
+.account-switcher:hover,
+.account-switcher:active {
+    color: #212529;
+}
+a.dropdown-item:hover {
+    text-decoration: underline;
+}
+.tooltip-inner {
+    max-width: 350px;
+    width: 350px;
+}
+.btn-danger {
+    margin-left: 1rem;
+}
+.form-check-inline {
+    padding-left: 1.25rem;
+    margin-right: 0;
+}

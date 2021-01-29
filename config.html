@@ -5,281 +5,327 @@
   <title>Github Dashboard</title>
 
   <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/dataTables.bootstrap4.min.css">
+
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+
+  <link rel="stylesheet" href="style.css">
 
   <script type="text/javascript">
-    // Handle the form submit to store the values in local storage.
-    function handleSubmit() {
-      // Clearing some config from storage before saving the new
-      // value(s).
-      localStorage.removeItem('approval_method-reaction');
-      localStorage.removeItem('approval_method-label');
-      localStorage.removeItem('static');
+    // Helper function to get query arguments.
+    var getUrlParameter = function getUrlParameter(sParam) {
+      var sPageURL = window.location.search.substring(1),
+        sURLVariables = sPageURL.split('&'),
+        sParameterName,
+        i;
 
-      localStorage.setItem('endpoint', $('input#endpoint').val());
-      localStorage.setItem('org', $('input#org').val());
-      localStorage.setItem('repo', $('input#repo').val());
-      localStorage.setItem('token', $('input#token').val());
-      localStorage.setItem('username', $('input#username').val());
-      localStorage.setItem('hide_closed', $('input#hide_closed').prop('checked'));
+      for (i = 0; i < sURLVariables.length; i++) {
+        sParameterName = sURLVariables[i].split('=');
 
-      let approval_method = $('select#approval_method').val();
-      localStorage.setItem('approval_method', approval_method);
-      if ($('#approval_method-' + approval_method) !== undefined) {
-        localStorage.setItem('approval_method-' + approval_method, $('#approval_method-' + approval_method).val());
+        if (sParameterName[0] === sParam) {
+          return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
+        }
       }
-
-      if ($('input#degraded').prop('checked')) {
-        localStorage.setItem('static', $('textarea#static').val());
-      }
-
-      $('div#status').html('<div class="alert alert-success" role="alert">Settings have been updated</div>');
-      window.scrollTo(0,0);
-
-      return false;
-    }
+    };
 
     // Set the default value from the local storage.
     $('document').ready(function() {
-      $('input#endpoint').val(localStorage.getItem('endpoint'));
-      $('input#org').val(localStorage.getItem('org'));
-      $('input#repo').val(localStorage.getItem('repo'));
-      $('input#token').val(localStorage.getItem('token'));
-      $('input#username').val(localStorage.getItem('username'));
-      $('input#hide_closed').prop('checked', JSON.parse(localStorage.getItem('hide_closed')));
-      $('input#degraded').prop('checked', localStorage.getItem('static') !== undefined);
-      $('textarea#static').val(localStorage.getItem('static'));
-      $('select#approval_method').val(localStorage.getItem('approval_method'));
-
-      $('div[id^=fieldset-approval_method-]').hide();
-      if ($('#approval_method-' + localStorage.getItem('approval_method')) !== undefined) {
-        $('#approval_method-' + localStorage.getItem('approval_method')).val(localStorage.getItem('approval_method-' + localStorage.getItem('approval_method')));
-
-        $('div#fieldset-approval_method-' + localStorage.getItem('approval_method')).show();
+      var accounts = {};
+      if (localStorage.getItem('accounts')) {
+        accounts = JSON.parse(localStorage.getItem('accounts'));
       }
 
-      // When approval method change, display the appropriate options.
+      console.log(accounts);
+
+      accounts['new'] = {};
+      accounts['new']['type'] = 'plus-circle';
+      accounts['new']['org'] = '';
+      accounts['new']['repo'] = '';
+      accounts['new']['endpoint'] = '';
+      accounts['new']['username'] = '';
+      accounts['new']['token'] = '';
+      accounts['new']['approval'] = {};
+      accounts['new']['approval']['method'] = 'reaction';
+      accounts['new']['approval']['settings'] = {};
+      accounts['new']['approval']['settings']['reaction'] = 'THUMBS_UP';
+
+      for (var [accountName, accountSettings] of Object.entries(accounts)) {
+        var accountNameNormalize = accountName.replace(/[^a-z]/gi, '');
+
+        if (accountName === 'new') {
+          accountName = 'New account';
+        }
+
+        var append = '<div class="card shadow card-' + accountNameNormalize +' mb-4">';
+        append += '<a href="#collapse' + accountNameNormalize + '" class="d-block card-header py-3" data-toggle="collapse" role="button" aria-expanded="true" aria-controls="collapse' + accountNameNormalize + '">';
+        append += '<h6 class="m-0 font-weight-bold"><i class="bi bi-' + accountSettings['type'] + '"></i>' + accountName + '</h6>';
+        append += '</a>';
+        append += '<div class="collapse" id="collapse' + accountNameNormalize + '">';
+        append += '<div class="card-body">';
+        append += '<form>';
+
+        append += '<input type="text" id="original_org" value="' + accountSettings['org'] + '" class="d-none"/>';
+        append += '<input type="text" id="original_repo" value="' + accountSettings['repo'] + '" class="d-none"/>';
+
+        // Endpoint field.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="endpoint" class="form-label">GraphQL endpoint</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="endpoint" placeholder="https://api.github.com/graphql" value="' + accountSettings['endpoint'] + '"/></div>';
+        append += '<div class="col-2"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The GraphQL endpoint to use. If you are hosted on Github.com, the endpoint is https://api.github.com/graphql. If you are hosted on an Enterprise version, the endpoint is probable https://github.customer.corp/api/graphql."></i></div>';
+        append += '</div>';
+
+        // Organization field.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="org" class="form-label">Organization</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="org" value="' + accountSettings['org'] + '"/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The organization\'s name of the repository you want to inspect. https://github.com/:org/:repo"></i></div>';
+        append += '</div>';
+
+        // Repository field.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="repo" class="form-label">Repository</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="repo" value="' + accountSettings['repo'] + '"/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The repository\'s name you want to inspect. https://github.com/:org/:repo"></i></div>';
+        append += '</div>';
+
+        // Token field.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="token" class="form-label">Access token</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="token" value="' + accountSettings['token'] + '"/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="A personal access token has to be used in place of a password to access the API and get the dashboard built."></i></div>';
+        append += '</div>';
+
+        // Username field.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="username" class="form-label">Reviewer username</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="username" value="' + accountSettings['username'] + '"/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The username of the TA doing the review. This username will be used to check comments\'s author, reactions\'s actor, reviewer name, etc."></i></div>';
+        append += '</div>';
+
+        // Approval method.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="approval_method" class="form-label">Approval method</label></div>';
+        append += '<div class="col-2"><select id="approval_method" class="form-control mr-sm-2">';
+        append += '<option value="reaction">Reaction</option>';
+        append += '<option value="label">Label</option>';
+        append += '<option value="reviewer">Review</option>';
+        append += '</select></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="Select the method the user uses to approve the pull requests. Reaction must be associated with the pull request description. Label will only be considered an approval if it has been added by the selected user."></i></div>';
+        append += '</div>';
+
+        // Approval reaction.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="approval_method-reaction" class="form-label">Reaction</label></div>';
+        append += '<div class="col-2"><select id="approval_method-reaction" class="form-control mr-sm-2">';
+        append += '<option value="THUMBS_UP">👍</option>';
+        append += '<option value="LAUGH">😄</option>';
+        append += '<option value="HOORAY">🎉</option>';
+        append += '<option value="HEART">❤️</option>';
+        append += '<option value="ROCKET">🚀️</option>';
+        append += '<option value="EYES">👀️</option>';
+        append += '</select></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The reaction which must be added by the selected user to the pull request\'s description for it to be considered approved."></i></div>';
+        append += '</div>';
+
+        // Approval label.
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="approval_method-label" class="form-label">Label</label></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="approval_method-label" value=""/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The label which must be added by the selected user to the pull request for it to be considered approved. It is case sensitive."></i></div>';
+        append += '</div>';
+
+        // Degraded mode.
+        console.log(accountSettings['static_data']);
+        append += '<div class="row g-3 align-items-center">';
+        append += '<div class="col-2"><label for="degraded" class="form-label form-check-label">Degraded mode</label></div>';
+        append += '<div class="col-2 form-check form-check-inline"><input id="degraded" class="form-check-input" type="checkbox" ' + ((accountSettings['static_data'] !== undefined) ? 'checked="checked"' : '') + '"/></div>';
+        append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="Don\'t use the API but read data from a response.json file. The file must be placed in the same folder than the dashboard and must be named response.json."></i></div>';
+        append += '</div>';
+
+        // Static JSON.
+        append += '<div class="row g-3 align-items-center m-2">';
+        append += '<textarea class="form-control" id="static" rows="15" style="width: 100%;">' + ((accountSettings['static_data'] !== undefined) ? accountSettings['static_data'] : '') + '</textarea>';
+        append += '</div>';
+
+        // Submit buttons.
+        append += '<input class="btn btn-primary" type="submit"/>';
+        if (accountNameNormalize !== 'new') {
+          append += '<button class="btn btn-danger" type="submit"><i class="bi bi-trash"></i>Delete</button>';
+        }
+
+        append += '</form>';
+        append += '</div>';
+        append += '</div>';
+        append += '</div>';
+
+        $('.content-fluid').append(append);
+
+        // Show/hide the approval method fields based on account settings.
+        $('.card-' + accountNameNormalize + ' [id^=approval_method-]').closest('div.row').hide();
+        $('.card-' + accountNameNormalize + ' #approval_method').val(accountSettings['approval']['method']);
+        if (accountSettings['approval']['method'] === 'reaction') {
+          $('.card-' + accountNameNormalize + ' #approval_method-reaction').val(accountSettings['approval']['settings']['reaction']);
+        }
+        else if (accountSettings['approval']['method'] === 'label') {
+          $('.card-' + accountNameNormalize + ' #approval_method-label').val(accountSettings['approval']['settings']['label']);
+        }
+        $('.card-' + accountNameNormalize + ' #approval_method-' + accountSettings['approval']['method']).closest('div.row').show();
+
+        // Show/hide the degraded field baed on the settings.
+        if (accountSettings['static_data'] === undefined) {
+          $('.card-' + accountNameNormalize + ' #static').closest('div.row').hide();
+        }
+      }
+
+      // Scroll the required form.
+
+      var queryAccount = getUrlParameter('account');
+      if (queryAccount) {
+        var queryAccountNormalize = queryAccount.replace(/[^a-z]/gi, '');
+
+        $('.card-' + queryAccountNormalize + ' .collapse').collapse('show');
+        document.querySelector('.card-' + queryAccountNormalize).scrollIntoView({
+          behavior: 'smooth'
+        });
+      }
+      else {
+        $('.card-new .collapse').collapse('show');
+      }
+
+      // Add listener on approval method dropdown to display the appropriate
+      // fields.
       $('select#approval_method').change(function() {
-        $('div[id^=fieldset-approval_method-]').hide();
-        $('div#fieldset-approval_method-' + $('select#approval_method').val()).show();
+        $(this).closest('.card').find('[id^=approval_method-]').closest('div.row').hide();
+        $(this).closest('.card').find('#approval_method-' + $(this).val()).closest('div.row').show();
       });
 
-      if (localStorage.getItem('static') === undefined) {
-        $('textarea#static').hide();
-      }
-
+      // Add listener on degraded mode checkbox to display/hide the textarea.
       $('input#degraded').change(function() {
-        $('textarea#static').hide();
-        if ($('input#degraded').prop('checked')) {
-          $('textarea#static').show();
+        $(this).closest('.card').find('#static').closest('div.row').hide();
+        if ($(this).prop('checked')) {
+          $(this).closest('.card').find('#static').closest('div.row').show();
         }
+      });
+
+      // Enable tooltips.
+      $('[data-toggle="tooltip"]').tooltip();
+
+      // Add listener on submit button to add a class when clicked. It helps
+      // to determine which submit button has been used.
+      $('input[type=submit]').click(function(e){
+        $(this).addClass('clicked');
+      });
+
+      $('form').submit(function(e) {
+        e.preventDefault();
+
+        // @TODO: Handle the validation.
+
+        // Add/edit button has been clicked.
+        if ($(this).find('.clicked').hasClass('btn-primary')) {
+          var original_accounts = {};
+          if (localStorage.getItem('accounts')) {
+            original_accounts = JSON.parse(localStorage.getItem('accounts'));
+          }
+
+          // Adding a fake item so when processing this one we will actually
+          // check if the submitted form is the creation of a new account.
+          original_accounts['new'] = {};
+
+          var original_org = $(this).find('#original_org').val();
+          var original_repo = $(this).find('#original_repo').val();
+
+          var accounts = {};
+          for (const [accountName, accountSettings] of Object.entries(original_accounts)) {
+            if (accountName === (original_org + '/' + original_repo) || (accountName === 'new' && original_org === '' && original_repo === '')) {
+              var settings = {};
+              // @TODO Detect the provider.
+              settings['type'] = 'github';
+              settings['endpoint'] = $(this).find('input#endpoint').val();
+              settings['org'] = $(this).find('input#org').val();
+              settings['repo'] = $(this).find('input#repo').val();
+              settings['token'] = $(this).find('input#token').val();
+              settings['username'] = $(this).find('input#username').val();
+              settings['approval'] = {};
+              settings['approval']['method'] = $(this).find('select#approval_method').val();
+              if (settings['approval']['method'] === 'reaction') {
+                settings['approval']['settings'] = {};
+                settings['approval']['settings']['reaction'] = $(this).find('select#approval_method-reaction').val();
+              }
+              else if (settings['approval']['method'] === 'label') {
+                settings['approval']['settings'] = {};
+                settings['approval']['settings']['label'] = $(this).find('input#approval_method-label').val();
+              }
+
+              console.log($(this).find('#degraded').prop('checked'));
+              console.log($(this).find('#static').val());
+              if ($(this).find('#degraded').prop('checked') && $(this).find('#static').val() !== '') {
+                settings['static_data'] = $(this).find('#static').val();
+                console.log(settings);
+              }
+
+              accounts[settings['org'] + '/' + settings['repo']] = settings;
+              $(this).closest('.card').find('h6').html('<i class="bi bi-' + settings['type'] + '"></i>' + settings['org'] + '/' + settings['repo']);
+            }
+            else if (accountName !== 'new') {
+              accounts[accountName] = accountSettings;
+            }
+          }
+          localStorage.setItem('accounts', JSON.stringify(accounts));
+
+          console.log(accounts);
+
+          // If it was the addition of a new account, we refresh the page so
+          // a new add-form is displayed.
+          if (original_org === '' && original_repo === '') {
+            location.reload();
+            // @TODO: Reload with query argument so it scrolls to the newly
+            // added account.
+          }
+          else {
+            // @TODO: Add a validation message.
+          }
+        }
+        else if ($(this).find('.clicked').hasClass('btn-danger')) {
+          var original_accounts = JSON.parse(localStorage.getItem('accounts'));
+
+          var original_org = $(this).find('#original_org').val();
+          var original_repo = $(this).find('#original_repo').val();
+
+          delete original_accounts[original_org + '/' + original_repo];
+
+          localStorage.setItem('accounts', JSON.stringify(original_accounts));
+          $(this).closest('.card').remove();
+        }
+
+        $(this).find('.clicked').removeClass('clicked');
       });
     });
   </script>
-
-  <style>
-    .form-group{
-      border: 1px solid #6c757d !important;
-      border-radius: .25rem;
-    }
-    legend{
-      float: none;
-      padding: inherit;
-      color: #6c757d;
-    }
-    div#status {
-      margin-top: 10px;
-    }
-    textarea {
-      border-radius: .25rem;
-      width: 100%;
-    }
-  </style>
 </head>
-<body class="container">
-> <a href="index.html">Return to the dashboard</a>
-<div id="status"></div>
-<form onsubmit="return handleSubmit();">
-  <fieldset class="form-group border p-2">
-    <legend class="w-auto">Github access</legend>
+<body>
+  <div id="wrapper">
+    <div id="content-wrapper">
+      <div id="content">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white topbar static-top shadow">
+          <div class="navbar-nav ml-auto">
+            <div class="nav-item">
+              <a href="index.html" class="nav-link btn btn-secondary back" type="button">Back to the dashboard</a>
+            </div>
+          </div>
+        </nav>
+      </div>
 
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="endpoint" class="form-label">GraphQL endpoint</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="endpoint"
-               aria-describedby="endpoint_help"
-               placeholder="https://api.github.com/graphql"/>
-      </div>
-      <div class="col align-self-end">
-        <div id="endpoint_help" class="form-text">The GraphQL endpoint to use. If you are hosted on Github.com, the endpoint is https://api.github.com/graphql. If you are hosted on an Enterprise version, the endpoint is probable https://github.customer.corp/api/graphql.
-        </div>
-      </div>
+      <div class="content-fluid"></div>
     </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="org" class="form-label">Organization</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="org"
-               aria-describedby="org_help"/>
-      </div>
-      <div class="col-auto">
-        <div id="org_help" class="form-text">The organization's name of the
-          repository you want to inspect. https://github.com/<b>:org</b>/:repo
-        </div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="repo" class="form-label">Repository</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="repo"
-               aria-describedby="repo_help"/>
-      </div>
-      <div class="col-auto">
-        <div id="repo_help" class="form-text">The repository's name you want to
-          inspect. https://github.com/:org/<b>:repo</b></div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="token" class="form-label">Access token</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="token"
-               aria-describedby="token_help"/>
-      </div>
-      <div class="col align-self-end">
-        <div id="token_help" class="form-text">A personal access token has to be
-          used in place of a password to access the API and get the dashboard
-          built. Follow <a
-                  href="https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token">the
-            Github documentation</a> about how to create one.
-        </div>
-      </div>
-    </div>
-  </fieldset>
-
-  <fieldset class="form-group border p-2">
-    <legend class="w-auto">Review settings</legend>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="username" class="form-label">TA's Github username</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="username"
-               aria-describedby="username_help"/>
-      </div>
-      <div class="col align-self-end">
-        <div id="username_help" class="form-text">The username of the TA doing
-          the review. This username will be used to check comments's author,
-          reactions's actor, reviewer name, etc.
-        </div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="approval_method" class="form-label">Approval method</label>
-      </div>
-      <div class="col-2">
-        <select id="approval_method" class="form-select mr-sm-2" aria-describedby="approval_method_help">
-          <option value="reaction">Reaction</option>
-          <option value="label">Label</option>
-          <option value="reviewer">Review</option>
-        </select>
-      </div>
-      <div class="col align-self-end">
-        <div id="approval_method_help" class="form-text">Select the method the
-          user uses to approve the pull requests. Reaction must be associated
-          with the pull request description. Label will only be considered an
-          approval if it has been added by the selected user. Review is about
-          the
-          <a href="https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/approving-a-pull-request-with-required-reviews">Github
-            reviewing</a> feature. In case multiple reviews are left by the selected user, the more recent one will be considered. @TODO: Add an option to find a specific
-          comment on the pull request.
-        </div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center" id="fieldset-approval_method-label">
-      <div class="col-2">
-        <label for="approval_method-label" class="form-label">Label</label>
-      </div>
-      <div class="col-2">
-        <input type="text" class="form-control" id="approval_method-label"
-               aria-describedby="approval_method-label_help"/>
-      </div>
-      <div class="col-auto">
-        <div id="approval_method-label_help" class="form-text">The label which must be added by the selected user to the pull request for it to be considered approved. It is case sensitive.</div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center" id="fieldset-approval_method-reaction">
-      <div class="col-2">
-        <label for="approval_method-label" class="form-label">Reaction</label>
-      </div>
-      <div class="col-2">
-        <select id="approval_method-reaction" class="form-select mr-sm-2" aria-describedby="approval_method-reaction_help">
-          <option value="THUMBS_UP">👍</option>
-          <option value="LAUGH">😄</option>
-          <option value="HOORAY">🎉</option>
-          <option value="HEART">❤️</option>
-          <option value="ROCKET">🚀️</option>
-          <option value="EYES">👀️</option>
-        </select>
-      </div>
-      <div class="col-auto">
-        <div id="approval_method-reaction_help" class="form-text">The reaction which must be added by the selected user to the pull request's description for it to be considered approved.</div>
-      </div>
-    </div>
-  </fieldset>
-
-  <fieldset class="form-group border p-2">
-    <legend class="w-auto">Options</legend>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="hide_closed" class="form-label">Hide closed PRs</label>
-      </div>
-      <div class="col-2">
-        <input id="hide_closed" class="form-check-input" type="checkbox" aria-describedby="hide_closed_help"/>
-      </div>
-      <div class="col-auto">
-        <div id="hide_closed_help" class="form-text">Don't list the pull requests which have been closed.</div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col-2">
-        <label for="degraded" class="form-label">Degraded mode</label>
-      </div>
-      <div class="col-2">
-        <input id="degraded" class="form-check-input" type="checkbox" aria-describedby="degraded_help"/>
-      </div>
-      <div class="col align-self-end">
-        <div id="degraded_help" class="form-text">Don't use the API but read data from a response.json file. The file must be placed in the same folder than the dashboard and must be named response.json</div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-center">
-      <div class="col">
-        <textarea id="static" rows="15"></textarea>
-      </div>
-    </div>
-
-
-  </fieldset>
-
-  <br/>
-  <input class="btn btn-primary" type="submit"/>
-</form>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
 </body>
