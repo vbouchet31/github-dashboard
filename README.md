@@ -46,12 +46,3 @@ being merged.
 # Technical details
 The system uses GraphQL API to gather all the information in a unique POST
 request.
-
-# Todo-list
-- Add an option to approve a pull request via a comment.
-- Add a way to snooze a pull request for sometime or until it is updated.
-- Ideally support both Rest API and GraphQL (some customer does not allow GraphQL but Rest)
-- Add an option to track only specific target branches (to avoid reviewing feature branches for example)
-- Cache the graphQL response for sometime
-- Store the config in keyed array so it is possible to switch between profiles
-- Add info about number of addition/deletion and files impacted
