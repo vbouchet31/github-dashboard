@@ -28,7 +28,7 @@
     // deceptive for a "standalone" version. Building a base url to be used for
     // links.
     var baseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname.split('/').splice(0, window.location.pathname.split('/').length-1).join('/');
-    if (baseUrl.slice(-1)) {
+    if (baseUrl.slice(-1) === '/') {
       baseUrl = baseUrl.slice(0, -1);
     }
 
