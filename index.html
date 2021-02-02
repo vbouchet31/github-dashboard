@@ -13,7 +13,7 @@
   <script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"></script>
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css">
 
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.css">
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/dataTables.bootstrap4.min.css">
 
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css">
@@ -24,6 +24,14 @@
   <link rel="stylesheet" href="style.css">
 
   <script type="text/javascript">
+    // Relative paths are not working well with file:/// which is a little bit
+    // deceptive for a "standalone" version. Building a base url to be used for
+    // links.
+    var baseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname.split('/').splice(0, window.location.pathname.split('/').length-1).join('/');
+    if (baseUrl.slice(-1)) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+
     // Get the settings of the active/selected account.
     var activeAccount = localStorage.getItem('activeAccount');
     const accounts = JSON.parse(localStorage.getItem('accounts'));
@@ -31,7 +39,7 @@
       activeAccount = Object.keys(accounts)[0];
 
       if (activeAccount === undefined) {
-        window.location.replace('/config.html');
+        window.location.replace(baseUrl + '/config.html');
       }
     }
     const settings = accounts[activeAccount];
@@ -172,7 +180,7 @@
     // Redirect to the config page if the variables are not configured.
     // We don't do the check if we are using the degraded mode.
     if (!settings['static'] && (!settings['endpoint'] || !settings['org'] || !settings['repo'] || !settings['token'] || !settings['username'])) {
-      window.location.replace('/config.html?account=new');
+      window.location.replace(baseUrl + '/config.html?account=new');
     }
 
     $(document).ready(function() {
@@ -490,8 +498,9 @@
 
       var prepend = '';
       for (const [accountName, accountSettings] of Object.entries(accounts)) {
-        prepend += '<span class="dropdown-item ' + ((accountName === activeAccount) ? 'active' : '') + '"><a href="/config.html?account=' + accountName + '"><i class="bi bi-gear"></i></a><a href="#" class="account-switcher" data-account="' + accountName + '">' + accountName + '</a></span>'
+        prepend += '<span class="dropdown-item ' + ((accountName === activeAccount) ? 'active' : '') + '"><a href="' + baseUrl + '/config.html?account=' + accountName + '"><i class="bi bi-gear"></i></a><a href="#" class="account-switcher" data-account="' + accountName + '">' + accountName + '</a></span>'
       }
+      prepend += '<a class="dropdown-item" href="' + baseUrl + '/config.html?account=new"><i class="bi bi-plus-square"></i>Configure new account</a>';
       $('.dropdown-menu').prepend(prepend);
 
       $('.dropdown a.account-switcher').on('click', function() {
@@ -512,7 +521,6 @@
                 <span class="placeholder"></span>
               </button>
               <div class="dropdown-menu">
-                <a class="dropdown-item" href="/config.html?account=new"><i class="bi bi-plus-square"></i>Configure new account</a>
               </div>
             </div>
           </div>
