@@ -43,8 +43,6 @@
         accounts = JSON.parse(localStorage.getItem('accounts'));
       }
 
-      console.log(accounts);
-
       accounts['new'] = {};
       accounts['new']['type'] = 'plus-circle';
       accounts['new']['org'] = '';
@@ -143,7 +141,6 @@
         append += '</div>';
 
         // Degraded mode.
-        console.log(accountSettings['static_data']);
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="degraded" class="form-label form-check-label">Degraded mode</label></div>';
         append += '<div class="col-2 form-check form-check-inline"><input id="degraded" class="form-check-input" type="checkbox" ' + ((accountSettings['static_data'] !== undefined) ? 'checked="checked"' : '') + '"/></div>';
