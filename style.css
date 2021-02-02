@@ -144,7 +144,7 @@ img.avatar-user{
 a.dropdown-item:hover {
     text-decoration: underline;
 }
-.tooltip-inner {
+form .tooltip-inner {
     max-width: 350px;
     width: 350px;
 }
