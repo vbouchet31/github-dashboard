@@ -182,16 +182,17 @@
         }
       }
 
-      // Scroll the required form.
-
+      // Scroll to the required form.
       var queryAccount = getUrlParameter('account');
       if (queryAccount) {
         var queryAccountNormalize = queryAccount.replace(/[^a-z]/gi, '');
 
-        $('.card-' + queryAccountNormalize + ' .collapse').collapse('show');
-        document.querySelector('.card-' + queryAccountNormalize).scrollIntoView({
-          behavior: 'smooth'
-        });
+        if ($('.card-' + queryAccountNormalize).length) {
+          $('.card-' + queryAccountNormalize + ' .collapse').collapse('show');
+          document.querySelector('.card-' + queryAccountNormalize).scrollIntoView({
+            behavior: 'smooth'
+          });
+        }
       }
       else {
         $('.card-new .collapse').collapse('show');
@@ -316,7 +317,8 @@
         </nav>
       </div>
 
-      <div class="content-fluid"></div>
+      <div class="content-fluid">
+      </div>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
