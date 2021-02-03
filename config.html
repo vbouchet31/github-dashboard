@@ -217,7 +217,7 @@
 
       // Add listener on submit button to add a class when clicked. It helps
       // to determine which submit button has been used.
-      $('input[type=submit]').click(function(e){
+      $('[type=submit]').click(function(e){
         $(this).addClass('clicked');
       });
 
@@ -262,11 +262,8 @@
                 settings['approval']['settings']['label'] = $(this).find('input#approval_method-label').val();
               }
 
-              console.log($(this).find('#degraded').prop('checked'));
-              console.log($(this).find('#static').val());
               if ($(this).find('#degraded').prop('checked') && $(this).find('#static').val() !== '') {
                 settings['static_data'] = $(this).find('#static').val();
-                console.log(settings);
               }
 
               accounts[settings['org'] + '/' + settings['repo']] = settings;
@@ -277,8 +274,6 @@
             }
           }
           localStorage.setItem('accounts', JSON.stringify(accounts));
-
-          console.log(accounts);
 
           // If it was the addition of a new account, we refresh the page so
           // a new add-form is displayed.
