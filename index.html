@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="style.css">
 
   <script type="text/javascript">
+    localStorage.removeItem('accounts');
     // Relative paths are not working well with file:/// which is a little bit
     // deceptive for a "standalone" version. Building a base url to be used for
     // links.
@@ -35,11 +36,15 @@
     // Get the settings of the active/selected account.
     var activeAccount = localStorage.getItem('activeAccount');
     const accounts = JSON.parse(localStorage.getItem('accounts'));
-    if (activeAccount === undefined || accounts[activeAccount] === undefined) {
-      activeAccount = Object.keys(accounts)[0];
+    if (activeAccount === undefined || accounts === null || accounts[activeAccount] === undefined) {
+      activeAccount = undefined;
+
+      if (accounts) {
+        activeAccount = Object.keys(accounts)[0];
+      }
 
       if (activeAccount === undefined) {
-        window.location.replace(baseUrl + '/config.html');
+        window.location.replace(baseUrl + '/config.html?account=new');
       }
     }
     const settings = accounts[activeAccount];
