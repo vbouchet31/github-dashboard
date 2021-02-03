@@ -36,6 +36,14 @@
       }
     };
 
+    // Relative paths are not working well with file:/// which is a little bit
+    // deceptive for a "standalone" version. Building a base url to be used for
+    // links.
+    var baseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname.split('/').splice(0, window.location.pathname.split('/').length-1).join('/');
+    if (baseUrl.slice(-1) === '/') {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+
     // Set the default value from the local storage.
     $('document').ready(function() {
       var accounts = {};
@@ -185,6 +193,13 @@
       // Scroll to the required form.
       var queryAccount = getUrlParameter('account');
       if (queryAccount) {
+        // If there is action=created query argument, we display a confirmation
+        // message.
+        var queryAction = getUrlParameter('action');
+        if (queryAction && queryAction === 'created') {
+          $('.alert').addClass('alert-success').html(queryAccount + ' account has been created.');
+        }
+
         var queryAccountNormalize = queryAccount.replace(/[^a-z]/gi, '');
 
         if ($('.card-' + queryAccountNormalize).length) {
@@ -192,6 +207,9 @@
           document.querySelector('.card-' + queryAccountNormalize).scrollIntoView({
             behavior: 'smooth'
           });
+        }
+        else {
+          $('.card-new .collapse').collapse('show');
         }
       }
       else {
@@ -269,6 +287,10 @@
 
               accounts[settings['org'] + '/' + settings['repo']] = settings;
               $(this).closest('.card').find('h6').html('<i class="bi bi-' + settings['type'] + '"></i>' + settings['org'] + '/' + settings['repo']);
+
+              // Save the name of the account which have been created/edited
+              // so we can add proper validation message.
+              var newAccountName = settings['org'] + '/' + settings['repo'];
             }
             else if (accountName !== 'new') {
               accounts[accountName] = accountSettings;
@@ -279,12 +301,10 @@
           // If it was the addition of a new account, we refresh the page so
           // a new add-form is displayed.
           if (original_org === '' && original_repo === '') {
-            location.reload();
-            // @TODO: Reload with query argument so it scrolls to the newly
-            // added account.
+            window.location.replace(baseUrl + '/config.html?account=' + newAccountName + '&action=created');
           }
           else {
-            // @TODO: Add a validation message.
+            $('.alert').addClass('alert-success').html(newAccountName + ' account has been updated.');
           }
         }
         else if ($(this).find('.clicked').hasClass('btn-danger')) {
@@ -297,6 +317,10 @@
 
           localStorage.setItem('accounts', JSON.stringify(original_accounts));
           $(this).closest('.card').remove();
+          $('.alert').addClass('alert-success').html(original_org + '/' + original_repo + ' account has been deleted.');
+          document.documentElement.scrollIntoView({
+            behavior: 'smooth'
+          });
         }
 
         $(this).find('.clicked').removeClass('clicked');
@@ -318,6 +342,7 @@
       </div>
 
       <div class="content-fluid">
+        <div class="alert" role="alert"></div>
       </div>
     </div>
   </div>
