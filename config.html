@@ -84,42 +84,42 @@
         // Endpoint field.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="endpoint" class="form-label">GraphQL endpoint</label></div>';
-        append += '<div class="col-4"><input type="text" class="form-control" id="endpoint" placeholder="https://api.github.com/graphql" value="' + accountSettings['endpoint'] + '"/></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="endpoint" required placeholder="https://api.github.com/graphql" value="' + accountSettings['endpoint'] + '"/></div>';
         append += '<div class="col-2"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The GraphQL endpoint to use. If you are hosted on Github.com, the endpoint is https://api.github.com/graphql. If you are hosted on an Enterprise version, the endpoint is probable https://github.customer.corp/api/graphql."></i></div>';
         append += '</div>';
 
         // Organization field.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="org" class="form-label">Organization</label></div>';
-        append += '<div class="col-4"><input type="text" class="form-control" id="org" value="' + accountSettings['org'] + '"/></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="org" required value="' + accountSettings['org'] + '"/></div>';
         append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The organization\'s name of the repository you want to inspect. https://github.com/:org/:repo"></i></div>';
         append += '</div>';
 
         // Repository field.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="repo" class="form-label">Repository</label></div>';
-        append += '<div class="col-4"><input type="text" class="form-control" id="repo" value="' + accountSettings['repo'] + '"/></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="repo" required value="' + accountSettings['repo'] + '"/></div>';
         append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The repository\'s name you want to inspect. https://github.com/:org/:repo"></i></div>';
         append += '</div>';
 
         // Token field.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="token" class="form-label">Access token</label></div>';
-        append += '<div class="col-4"><input type="text" class="form-control" id="token" value="' + accountSettings['token'] + '"/></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="token" required value="' + accountSettings['token'] + '"/></div>';
         append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="A personal access token has to be used in place of a password to access the API and get the dashboard built."></i></div>';
         append += '</div>';
 
         // Username field.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="username" class="form-label">Reviewer username</label></div>';
-        append += '<div class="col-4"><input type="text" class="form-control" id="username" value="' + accountSettings['username'] + '"/></div>';
+        append += '<div class="col-4"><input type="text" class="form-control" id="username" required value="' + accountSettings['username'] + '"/></div>';
         append += '<div class="col-1"><i class="bi bi-question-circle-fill" data-toggle="tooltip" data-bs-html="true" data-placement="right" title="The username of the user doing the review. This username will be used to check comments\'s author, reactions\'s actor, reviewer name, etc."></i></div>';
         append += '</div>';
 
         // Approval method.
         append += '<div class="row g-3 align-items-center">';
         append += '<div class="col-2"><label for="approval_method" class="form-label">Approval method</label></div>';
-        append += '<div class="col-2"><select id="approval_method" class="form-control mr-sm-2">';
+        append += '<div class="col-2"><select id="approval_method" required class="form-control mr-sm-2">';
         append += '<option value="reaction">Reaction</option>';
         append += '<option value="label">Label</option>';
         append += '<option value="reviewer">Review</option>';
@@ -178,15 +178,21 @@
         $('.card-' + accountNameNormalize + ' #approval_method').val(accountSettings['approval']['method']);
         if (accountSettings['approval']['method'] === 'reaction') {
           $('.card-' + accountNameNormalize + ' #approval_method-reaction').val(accountSettings['approval']['settings']['reaction']);
+          $('.card-' + accountNameNormalize + ' #approval_method-reaction').prop('required', true);
         }
         else if (accountSettings['approval']['method'] === 'label') {
           $('.card-' + accountNameNormalize + ' #approval_method-label').val(accountSettings['approval']['settings']['label']);
+          $('.card-' + accountNameNormalize + ' #approval_method-label').prop('required', true);
         }
         $('.card-' + accountNameNormalize + ' #approval_method-' + accountSettings['approval']['method']).closest('div.row').show();
 
         // Show/hide the degraded field baed on the settings.
         if (accountSettings['static_data'] === undefined) {
           $('.card-' + accountNameNormalize + ' #static').closest('div.row').hide();
+        }
+        else {
+          $('input#endpoint').prop('required', false);
+          $('input#token').prop('required', false);
         }
       }
 
@@ -217,17 +223,24 @@
       }
 
       // Add listener on approval method dropdown to display the appropriate
-      // fields.
+      // fields and update required attribute.
       $('select#approval_method').change(function() {
         $(this).closest('.card').find('[id^=approval_method-]').closest('div.row').hide();
+        $(this).closest('.card').find('[id^=approval_method-]').prop('required', false);
         $(this).closest('.card').find('#approval_method-' + $(this).val()).closest('div.row').show();
+        $(this).closest('.card').find('#approval_method-' + $(this).val()).prop('required', true);
       });
 
       // Add listener on degraded mode checkbox to display/hide the textarea.
+      // We also make endpoint and token optional if degraded mode.
       $('input#degraded').change(function() {
         $(this).closest('.card').find('#static').closest('div.row').hide();
+        $('input#endpoint').prop('required', true);
+        $('input#token').prop('required', true);
         if ($(this).prop('checked')) {
           $(this).closest('.card').find('#static').closest('div.row').show();
+          $('input#endpoint').prop('required', false);
+          $('input#token').prop('required', false);
         }
       });
 
@@ -242,8 +255,6 @@
 
       $('form').submit(function(e) {
         e.preventDefault();
-
-        // @TODO: Handle the validation.
 
         // Add/edit button has been clicked.
         if ($(this).find('.clicked').hasClass('btn-primary')) {

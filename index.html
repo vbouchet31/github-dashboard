@@ -180,13 +180,14 @@
 
     // Redirect to the config page if the variables are not configured.
     // We don't do the check if we are using the degraded mode.
-    if (!settings['static'] && (!settings['endpoint'] || !settings['org'] || !settings['repo'] || !settings['token'] || !settings['username'])) {
+    if (!settings['org'] || !settings['repo'] || !settings['username'] && (!settings['static'] || (!settings['endpoint'] || !settings['token']))) {
       window.location.replace(baseUrl + '/config.html?account=new');
     }
 
     $(document).ready(function() {
 
       fetchData().then(data => {
+        console.log(data);
         $('#loading').html('');
         if (data === undefined) {
           $('#loading').html('An error occurred. Please check the console.');
